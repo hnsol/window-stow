@@ -1,7 +1,6 @@
 // writing.kdl
 keybind "ctrl+alt+2"
 description "Writing: Notes fullscreen"
-hide_others true
 
 window {
     app "Notes"

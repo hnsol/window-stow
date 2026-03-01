@@ -1,7 +1,6 @@
 // reference.kdl
 keybind "ctrl+alt+3"
 description "Reference: Safari left, Notes right"
-hide_others false
 
 window {
     app "Safari"

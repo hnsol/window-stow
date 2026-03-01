@@ -1,7 +1,6 @@
 // coding.kdl
 keybind "ctrl+alt+1"
 description "Dev: Safari left, Terminal split right"
-hide_others false
 
 window {
     app "Safari"

@@ -70,20 +70,8 @@ local function layoutAppNames(layoutDef)
 end
 
 -- Apply a layout definition.
--- layoutDef: { name, hide_others, windows=[{app, screen, x, y, w, h, reuse, focus}] }
+-- layoutDef: { name, windows=[{app, screen, x, y, w, h, reuse, focus}] }
 function M.apply(layoutDef)
-    local layoutAppSet = layoutAppNames(layoutDef)
-
-    -- Hide non-layout apps if requested
-    if layoutDef.hide_others then
-        for _, app in ipairs(hs.application.runningApplications()) do
-            local name = app:name()
-            if name and not layoutAppSet[name] then
-                app:hide()
-            end
-        end
-    end
-
     local claimedIds = {}
     local focusWin   = nil
     local windows    = layoutDef.windows or {}

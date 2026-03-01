@@ -64,7 +64,6 @@ Symlinks and regular files both work.
 |---|---|---|---|
 | `keybind` | optional | — | hotkey string e.g. `"ctrl+alt+1"` |
 | `description` | optional | — | shown in chooser subtext |
-| `hide_others` | optional | `false` | hide apps not in this layout |
 
 ### Window Properties
 
@@ -101,7 +100,6 @@ If a nonexistent index is specified, Ryoiki falls back to the primary screen.
 // coding.kdl
 keybind "ctrl+alt+1"
 description "Dev: Safari left, Terminal split right"
-hide_others false
 
 window {
     app "Safari"
