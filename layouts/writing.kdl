@@ -1,0 +1,15 @@
+// writing.kdl
+keybind "ctrl+alt+2"
+description "Writing: Obsidian fullscreen"
+hide_others true
+
+window {
+    app "Obsidian"
+    screen 0
+    x "0%"
+    y "0%"
+    w "100%"
+    h "100%"
+    reuse true
+    focus true
+}

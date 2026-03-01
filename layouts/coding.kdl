@@ -1,0 +1,34 @@
+// coding.kdl
+keybind "ctrl+alt+1"
+description "Dev: Chrome left, Ghostty split right"
+hide_others false
+
+window {
+    app "Google Chrome"
+    screen 0
+    x "0%"
+    y "0%"
+    w "70%"
+    h "100%"
+    reuse true
+    focus false
+}
+window {
+    app "Ghostty"
+    screen 0
+    x "70%"
+    y "0%"
+    w "30%"
+    h "50%"
+    reuse true
+    focus true
+}
+window {
+    app "Ghostty"
+    screen 0
+    x "70%"
+    y "50%"
+    w "30%"
+    h "50%"
+    reuse false
+}

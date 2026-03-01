@@ -1,0 +1,83 @@
+[
+  {
+    "Constant": [],
+    "Constructor": [],
+    "Deprecated": [],
+    "Field": [],
+    "Function": [],
+    "Method": [
+      {
+        "def": "Ryoiki:start()",
+        "desc": "Load layouts, bind per-layout hotkeys, and initialise the chooser.",
+        "doc": "Load layouts, bind per-layout hotkeys, and initialise the chooser.\n\nReturns:\n * The Ryoiki object",
+        "name": "start",
+        "parameters": [],
+        "returns": ["* The Ryoiki object"],
+        "signature": "Ryoiki:start()",
+        "stripped_doc": "",
+        "type": "Method"
+      },
+      {
+        "def": "Ryoiki:stop()",
+        "desc": "Delete all hotkeys and destroy the chooser.",
+        "doc": "Delete all hotkeys and destroy the chooser.\n\nReturns:\n * The Ryoiki object",
+        "name": "stop",
+        "parameters": [],
+        "returns": ["* The Ryoiki object"],
+        "signature": "Ryoiki:stop()",
+        "stripped_doc": "",
+        "type": "Method"
+      },
+      {
+        "def": "Ryoiki:bindHotkeys(map)",
+        "desc": "Bind additional hotkeys such as showChooser.",
+        "doc": "Bind additional hotkeys such as showChooser.\n\nParameters:\n * map - A table with optional key `showChooser` = {mods, key}\n\nReturns:\n * The Ryoiki object",
+        "name": "bindHotkeys",
+        "parameters": ["* map - Table of hotkey mappings"],
+        "returns": ["* The Ryoiki object"],
+        "signature": "Ryoiki:bindHotkeys(map)",
+        "stripped_doc": "",
+        "type": "Method"
+      },
+      {
+        "def": "Ryoiki:applyLayout(name)",
+        "desc": "Apply a named layout immediately.",
+        "doc": "Apply a named layout immediately.\n\nParameters:\n * name - String name of the layout to apply",
+        "name": "applyLayout",
+        "parameters": ["* name - String name of the layout"],
+        "returns": [],
+        "signature": "Ryoiki:applyLayout(name)",
+        "stripped_doc": "",
+        "type": "Method"
+      },
+      {
+        "def": "Ryoiki:reloadConfig()",
+        "desc": "Reload layout files from layouts_dir and rebind per-layout hotkeys.",
+        "doc": "Reload layout files from layouts_dir and rebind per-layout hotkeys.",
+        "name": "reloadConfig",
+        "parameters": [],
+        "returns": [],
+        "signature": "Ryoiki:reloadConfig()",
+        "stripped_doc": "",
+        "type": "Method"
+      }
+    ],
+    "Variable": [
+      {
+        "def": "Ryoiki.layouts_dir",
+        "desc": "Directory containing *.kdl layout files. Defaults to hs.configdir .. '/layouts'.",
+        "doc": "Directory containing *.kdl layout files. Defaults to hs.configdir .. '/layouts'.",
+        "name": "layouts_dir",
+        "signature": "Ryoiki.layouts_dir",
+        "stripped_doc": "",
+        "type": "Variable"
+      }
+    ],
+    "desc": "Window layout manager for Hammerspoon",
+    "doc": "Window layout manager for Hammerspoon. Define layouts as individual KDL files and apply them via hotkeys or a chooser menu.",
+    "items": [],
+    "name": "Ryoiki",
+    "plist": [],
+    "type": "spoon"
+  }
+]
