@@ -85,57 +85,81 @@ function M.apply(layoutDef)
     end
 
     local claimedIds = {}
-    local focusWin = nil
-    local windows = layoutDef.windows or {}
+    local focusWin   = nil
+    local windows    = layoutDef.windows or {}
 
-    local function processWindow(index)
-        if index > #windows then
+    -- Count window slots that have an app (for pending completion tracking)
+    local pending = 0
+    for _, winDef in ipairs(windows) do
+        if winDef.app then pending = pending + 1 end
+    end
+
+    -- Apply focus once all slots are done (Promise.all equivalent)
+    local function onDone()
+        pending = pending - 1
+        if pending == 0 then
             if focusWin then focusWin:focus() end
-            return
-        end
-
-        local winDef = windows[index]
-        if not winDef.app then
-            processWindow(index + 1)
-            return
-        end
-
-        local win = (winDef.reuse ~= false) and findUnclaimedWindow(winDef.app, claimedIds)
-
-        local function onWin(w)
-            if w then
-                claimedIds[w:id()] = true
-                local screen = getScreen(winDef.screen or 0)
-                local sf = screen:frame()
-                w:setFrame({
-                    x = sf.x + resolveValue(winDef.x or 0, sf.w),
-                    y = sf.y + resolveValue(winDef.y or 0, sf.h),
-                    w = resolveValue(winDef.w or 1, sf.w),
-                    h = resolveValue(winDef.h or 1, sf.h),
-                }, 0)
-                if winDef.focus then focusWin = w end
-            else
-                print("Ryoiki: could not get window for app: " .. tostring(winDef.app))
-            end
-            processWindow(index + 1)
-        end
-
-        if win then
-            onWin(win)
-        else
-            waitForWindowAsync(winDef.app, claimedIds, 5, onWin)
         end
     end
 
-    -- Pre-launch all apps in parallel before sequential window processing
+    -- Pre-launch all unstarted apps in parallel
     local launched = {}
     for _, winDef in ipairs(windows) do
-        if winDef.app and not launched[winDef.app] and not hs.application.get(winDef.app) then
-            hs.application.launchOrFocus(winDef.app)
+        if winDef.app and not launched[winDef.app] then
+            local app = hs.application.get(winDef.app)
+            if not app then
+                hs.application.launchOrFocus(winDef.app)
+            elseif app:isHidden() then
+                app:unhide()
+            end
             launched[winDef.app] = true
         end
     end
-    processWindow(1)
+
+    if pending == 0 then return end
+
+    -- Process all window slots in parallel (Lua is single-threaded; no lock needed)
+    for _, winDef in ipairs(windows) do
+        if winDef.app then
+            local def = winDef  -- capture loop variable for closures
+
+            local win = (def.reuse ~= false) and findUnclaimedWindow(def.app, claimedIds)
+
+            if win then
+                -- Fast path: window already exists
+                claimedIds[win:id()] = true
+                local screen = getScreen(def.screen or 0)
+                local sf = screen:frame()
+                win:setFrame({
+                    x = sf.x + resolveValue(def.x or 0, sf.w),
+                    y = sf.y + resolveValue(def.y or 0, sf.h),
+                    w = resolveValue(def.w or 1, sf.w),
+                    h = resolveValue(def.h or 1, sf.h),
+                }, 0)
+                if def.focus then focusWin = win end
+                onDone()
+            else
+                -- Slow path: wait for window asynchronously (independent timer per slot)
+                waitForWindowAsync(def.app, claimedIds, 5, function(w)
+                    if w then
+                        claimedIds[w:id()] = true
+                        local screen = getScreen(def.screen or 0)
+                        local sf = screen:frame()
+                        w:setFrame({
+                            x = sf.x + resolveValue(def.x or 0, sf.w),
+                            y = sf.y + resolveValue(def.y or 0, sf.h),
+                            w = resolveValue(def.w or 1, sf.w),
+                            h = resolveValue(def.h or 1, sf.h),
+                        }, 0)
+                        if def.focus then focusWin = w end
+                    else
+                        print("Ryoiki: could not get window for app: " .. tostring(def.app))
+                    end
+                    onDone()
+                end)
+            end
+        end
+    end
 end
 
 return M

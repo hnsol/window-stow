@@ -79,7 +79,8 @@ Symlinks and regular files both work.
 | `reuse` | optional | `true` | reuse an existing window of that app |
 | `focus` | optional | `false` | focus this window after layout is applied |
 
-> **Note**: `reuse false` requests a new window, but relies on the app creating one automatically after `launchOrFocus`. Apps that don't open a new window on re-launch (e.g. single-window apps) will have their existing window repositioned instead.
+> [!NOTE]
+> `reuse false` requests a new window, but relies on the app creating one automatically after `launchOrFocus`. Apps that don't open a new window on re-launch (e.g. single-window apps) will have their existing window repositioned instead.
 
 ### Finding your screen index
 
