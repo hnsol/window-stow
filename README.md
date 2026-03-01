@@ -23,18 +23,14 @@ spoon.SpoonInstall:andUse("Ryoiki", {
     hotkeys = { showChooser = { {"ctrl", "alt"}, "space" } },
 })
 ```
-
-### Manual (symlink, for local development)
+ 
+### Manual 
 
 ```bash
-# Clone the repo
-git clone https://github.com/masaki39/ryoiki ~/ghq/github.com/masaki39/ryoiki
-
-# Symlink the spoon
-ln -sf ~/ghq/github.com/masaki39/ryoiki/Ryoiki.spoon ~/.hammerspoon/Spoons/Ryoiki.spoon
+git clone https://github.com/masaki39/ryoiki
 ```
 
-Then add to `~/.hammerspoon/init.lua`:
+Then open `Spoons/Ryoiki.spoon.zip`, and  add to `~/.hammerspoon/init.lua`:
 
 ```lua
 -- Ryoiki: window layout manager
@@ -67,7 +63,6 @@ Symlinks and regular files both work.
 | Property | Required | Default | Description |
 |---|---|---|---|
 | `keybind` | optional | — | hotkey string e.g. `"ctrl+alt+1"` |
-| `menu_key` | optional | — | single character; typing it in the chooser instantly applies the layout |
 | `description` | optional | — | shown in chooser subtext |
 | `hide_others` | optional | `false` | hide apps not in this layout |
 
@@ -104,12 +99,11 @@ If a nonexistent index is specified, Ryoiki falls back to the primary screen.
 ```kdl
 // coding.kdl
 keybind "ctrl+alt+1"
-menu_key "1"
-description "Dev: Chrome left, Ghostty split right"
+description "Dev: Safari left, Terminal split right"
 hide_others false
 
 window {
-    app "Google Chrome"
+    app "Safari"
     screen 0
     x "0%"
     y "0%"
@@ -119,7 +113,7 @@ window {
     focus false
 }
 window {
-    app "Ghostty"
+    app "Terminal"
     screen 0
     x "70%"
     y "0%"
@@ -129,7 +123,7 @@ window {
     focus true
 }
 window {
-    app "Ghostty"
+    app "Terminal"
     screen 0
     x "70%"
     y "50%"
@@ -145,26 +139,9 @@ window {
 |--------|-------------|
 | `ctrl+alt+space` | Open chooser menu |
 | `ctrl+alt+1` | Apply layout directly (if keybind set) |
-| Type `menu_key` in chooser | Instantly apply layout without pressing Enter |
 | `spoon.Ryoiki:applyLayout("coding")` | Apply from Hammerspoon console |
 | `spoon.Ryoiki:reloadConfig()` | Reload after editing layout files |
-| `spoon.Ryoiki.verbose = true` | Show progress alerts while applying layouts |
 
-## SpoonInstall Tips
-
-After adding or changing the `masaki39` repo config, run the following in the Hammerspoon console to fetch the latest metadata:
-
-```lua
-spoon.SpoonInstall:asyncUpdateAllRepos()
-```
-
-To reload your Hammerspoon config after editing layout files or `init.lua`:
-
-```lua
-hs.reload()
--- or, to reload only Ryoiki layouts without a full restart:
-spoon.Ryoiki:reloadConfig()
-```
 
 ## Version Management
 
