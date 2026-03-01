@@ -22,17 +22,18 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "Ryoiki"
-obj.version = "1.4"
+obj.version = "2.0"
 obj.author = "masaki39"
 obj.license = "MIT"
 
--- Directory containing *.kdl layout files; caller can override before :start()
+-- Directory containing *.lua layout files; caller can override before :start()
 obj.layouts_dir = hs.configdir .. "/layouts"
 
 -- Internal state
-obj._layouts = {} -- array of parsed layout tables
-obj._hotkeys = {} -- hs.hotkey objects bound by this spoon
-obj._chooser = nil -- chooser instance
+obj._layouts       = {} -- array of parsed layout tables
+obj._layoutHotkeys = {} -- hs.hotkey objects for per-layout keybinds (rebuilt on reloadConfig)
+obj._spoonHotkeys  = {} -- hs.hotkey objects for spoon-level bindings (showChooser etc.)
+obj._chooser       = nil -- chooser instance
 
 -- Load (or reload) layouts from layouts_dir
 function obj:_loadLayouts()
@@ -45,7 +46,7 @@ function obj:_loadLayouts()
 	end
 end
 
--- Bind per-layout hotkeys
+-- Bind per-layout hotkeys (stored in _layoutHotkeys)
 function obj:_bindLayoutHotkeys()
 	local bindings = {}
 	for _, ld in ipairs(self._layouts) do
@@ -59,10 +60,7 @@ function obj:_bindLayoutHotkeys()
 			}
 		end
 	end
-	local newKeys = hotkeys.bindAll(bindings)
-	for _, hk in ipairs(newKeys) do
-		self._hotkeys[#self._hotkeys + 1] = hk
-	end
+	self._layoutHotkeys = hotkeys.bindAll(bindings)
 end
 
 -- Start the spoon: load config, bind hotkeys, create chooser
@@ -79,10 +77,13 @@ function obj:start()
 	return self
 end
 
--- Stop: delete hotkeys, destroy chooser
+-- Stop: delete all hotkeys, destroy chooser, cancel pending layout timers
 function obj:stop()
-	hotkeys.deleteAll(self._hotkeys)
-	self._hotkeys = {}
+	layout.cancelPending()
+	hotkeys.deleteAll(self._layoutHotkeys)
+	hotkeys.deleteAll(self._spoonHotkeys)
+	self._layoutHotkeys = {}
+	self._spoonHotkeys  = {}
 
 	if self._chooser then
 		self._chooser.destroy()
@@ -92,7 +93,7 @@ function obj:stop()
 	return self
 end
 
--- Bind additional hotkeys (e.g. showChooser)
+-- Bind additional hotkeys (e.g. showChooser) — stored in _spoonHotkeys
 -- map: { showChooser = { mods, key } }
 function obj:bindHotkeys(map)
 	if map.showChooser then
@@ -102,7 +103,7 @@ function obj:bindHotkeys(map)
 				self._chooser.show()
 			end
 		end)
-		self._hotkeys[#self._hotkeys + 1] = hk
+		self._spoonHotkeys[#self._spoonHotkeys + 1] = hk
 	end
 	return self
 end
@@ -118,10 +119,11 @@ function obj:applyLayout(name)
 	hs.notify.show("Ryoiki", "", "Layout not found: " .. tostring(name))
 end
 
--- Reload layouts and rebind hotkeys
+-- Reload layouts and rebind layout hotkeys only (spoon hotkeys preserved)
 function obj:reloadConfig()
-	hotkeys.deleteAll(self._hotkeys)
-	self._hotkeys = {}
+	layout.cancelPending()
+	hotkeys.deleteAll(self._layoutHotkeys)
+	self._layoutHotkeys = {}
 	self:_loadLayouts()
 	self:_bindLayoutHotkeys()
 	-- Keep chooser alive; it pulls layouts lazily via getLayouts()

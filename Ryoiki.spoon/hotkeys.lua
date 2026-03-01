@@ -15,9 +15,15 @@ function M.parseCombo(combo)
     if #parts == 0 then return nil end
 
     local key = parts[#parts]
+    if not key or key == "" then return nil end
     local mods = {}
+    local seen = {}
     for i = 1, #parts - 1 do
-        mods[#mods + 1] = parts[i]
+        local mod = parts[i]
+        if not seen[mod] then
+            seen[mod] = true
+            mods[#mods + 1] = mod
+        end
     end
 
     return { mods = mods, key = key }
@@ -33,7 +39,7 @@ function M.bindAll(bindings)
             if ok and hk then
                 hotkeys[#hotkeys + 1] = hk
             else
-                print("Ryoiki hotkeys: failed to bind " .. tostring(binding.combo))
+                hs.notify.show("Ryoiki", "", "Failed to bind hotkey: " .. tostring(binding.combo))
             end
         end
     end

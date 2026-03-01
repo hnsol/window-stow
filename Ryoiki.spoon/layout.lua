@@ -3,6 +3,17 @@
 
 local M = {}
 
+-- Active async timers; populated by waitForWindowAsync, cleared by cancelPending
+M._activeTimers = {}
+
+-- Stop all pending async window-wait timers
+function M.cancelPending()
+    for timer in pairs(M._activeTimers) do
+        pcall(function() timer:stop() end)
+    end
+    M._activeTimers = {}
+end
+
 -- Resolve a value to absolute pixels given a dimension (width or height).
 -- Accepts:
 --   number 0.0..1.0  → treated as fraction of dimension
@@ -25,6 +36,16 @@ local function getScreen(index)
     return screen or hs.screen.primaryScreen()
 end
 
+-- Apply a window def's position/size to an existing window object
+local function applyWindowFrame(win, def, sf)
+    win:setFrame({
+        x = sf.x + resolveValue(def.x or 0, sf.w),
+        y = sf.y + resolveValue(def.y or 0, sf.h),
+        w = resolveValue(def.w or 1, sf.w),
+        h = resolveValue(def.h or 1, sf.h),
+    }, 0)
+end
+
 -- Find a window for appName that is NOT in claimedIds.
 -- Returns the window or nil.
 local function findUnclaimedWindow(appName, claimedIds)
@@ -43,7 +64,7 @@ end
 -- Async: poll until a standard window for appName appears, or timeout (seconds) is reached.
 -- Calls callback(win) with the window or nil.
 local function waitForWindowAsync(appName, claimedIds, timeout, callback)
-    local interval = 0.05
+    local interval = 0.1
     local elapsed = 0
     local timer
     timer = hs.timer.new(interval, function()
@@ -51,26 +72,20 @@ local function waitForWindowAsync(appName, claimedIds, timeout, callback)
         local win = findUnclaimedWindow(appName, claimedIds)
         if win then
             timer:stop()
+            M._activeTimers[timer] = nil
             callback(win)
         elseif elapsed >= timeout then
             timer:stop()
+            M._activeTimers[timer] = nil
             callback(nil)
         end
     end)
+    M._activeTimers[timer] = true
     timer:start()
 end
 
--- Collect the set of app names referenced in a layout definition.
-local function layoutAppNames(layoutDef)
-    local names = {}
-    for _, winDef in ipairs(layoutDef.windows or {}) do
-        if winDef.app then names[winDef.app] = true end
-    end
-    return names
-end
-
 -- Apply a layout definition.
--- layoutDef: { name, windows=[{app, screen, x, y, w, h, reuse, focus}] }
+-- layoutDef: { name, windows=[{app, screen, x, y, w, h, focus}] }
 function M.apply(layoutDef)
     local claimedIds = {}
     local focusWin   = nil
@@ -90,7 +105,7 @@ function M.apply(layoutDef)
         end
     end
 
-    -- Pre-launch all unstarted apps in parallel
+    -- Pass 1: launch/unhide each app (deduplicated by app name)
     local launched = {}
     for _, winDef in ipairs(windows) do
         if winDef.app and not launched[winDef.app] then
@@ -111,19 +126,14 @@ function M.apply(layoutDef)
         if winDef.app then
             local def = winDef  -- capture loop variable for closures
 
-            local win = (def.reuse ~= false) and findUnclaimedWindow(def.app, claimedIds)
+            local win = findUnclaimedWindow(def.app, claimedIds)
 
             if win then
                 -- Fast path: window already exists
                 claimedIds[win:id()] = true
                 local screen = getScreen(def.screen or 0)
                 local sf = screen:frame()
-                win:setFrame({
-                    x = sf.x + resolveValue(def.x or 0, sf.w),
-                    y = sf.y + resolveValue(def.y or 0, sf.h),
-                    w = resolveValue(def.w or 1, sf.w),
-                    h = resolveValue(def.h or 1, sf.h),
-                }, 0)
+                applyWindowFrame(win, def, sf)
                 if def.focus then focusWin = win end
                 onDone()
             else
@@ -133,15 +143,10 @@ function M.apply(layoutDef)
                         claimedIds[w:id()] = true
                         local screen = getScreen(def.screen or 0)
                         local sf = screen:frame()
-                        w:setFrame({
-                            x = sf.x + resolveValue(def.x or 0, sf.w),
-                            y = sf.y + resolveValue(def.y or 0, sf.h),
-                            w = resolveValue(def.w or 1, sf.w),
-                            h = resolveValue(def.h or 1, sf.h),
-                        }, 0)
+                        applyWindowFrame(w, def, sf)
                         if def.focus then focusWin = w end
                     else
-                        print("Ryoiki: could not get window for app: " .. tostring(def.app))
+                        hs.notify.show("Ryoiki", "", "Could not get window for: " .. tostring(def.app))
                     end
                     onDone()
                 end)
