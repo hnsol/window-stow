@@ -1,10 +1,10 @@
 // reference.kdl
 keybind "ctrl+alt+3"
-description "Reference: Chrome left, Obsidian right"
+description "Reference: Safari left, Notes right"
 hide_others false
 
 window {
-    app "Google Chrome"
+    app "Safari"
     screen 0
     x "0%"
     y "0%"
@@ -14,7 +14,7 @@ window {
     focus true
 }
 window {
-    app "Obsidian"
+    app "Notes"
     screen 0
     x "60%"
     y "0%"

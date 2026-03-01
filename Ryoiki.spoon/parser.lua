@@ -178,7 +178,6 @@ local function parseFlat(text, name)
     local layout = {
         name = name,
         keybind = nil,
-        menu_key = nil,
         description = nil,
         hide_others = false,
         windows = {},
@@ -197,7 +196,6 @@ local function parseFlat(text, name)
             else
                 local val = parseValue()
                 if key == "keybind" then layout.keybind = val
-                elseif key == "menu_key" then layout.menu_key = val
                 elseif key == "description" then layout.description = val
                 elseif key == "hide_others" then layout.hide_others = val
                 end

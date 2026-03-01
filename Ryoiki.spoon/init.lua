@@ -29,9 +29,6 @@ obj.license = "MIT"
 -- Directory containing *.kdl layout files; caller can override before :start()
 obj.layouts_dir = hs.configdir .. "/layouts"
 
--- Show progress alerts while applying layouts
-obj.verbose = true
-
 -- Internal state
 obj._layouts  = {}   -- array of parsed layout tables
 obj._hotkeys  = {}   -- hs.hotkey objects bound by this spoon
@@ -109,7 +106,7 @@ end
 function obj:applyLayout(name)
     for _, ld in ipairs(self._layouts) do
         if ld.name == name then
-            layout.apply(ld, { verbose = self.verbose })
+            layout.apply(ld)
             return
         end
     end

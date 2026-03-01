@@ -71,9 +71,7 @@ end
 
 -- Apply a layout definition.
 -- layoutDef: { name, hide_others, windows=[{app, screen, x, y, w, h, reuse, focus}] }
--- opts: { verbose = bool }
-function M.apply(layoutDef, opts)
-    local verbose = opts and opts.verbose or false
+function M.apply(layoutDef)
     local layoutAppSet = layoutAppNames(layoutDef)
 
     -- Hide non-layout apps if requested
@@ -93,7 +91,6 @@ function M.apply(layoutDef, opts)
     local function processWindow(index)
         if index > #windows then
             if focusWin then focusWin:focus() end
-            if verbose then hs.alert.show("Layout applied: " .. layoutDef.name) end
             return
         end
 
@@ -126,13 +123,18 @@ function M.apply(layoutDef, opts)
         if win then
             onWin(win)
         else
-            if verbose then hs.alert.show("Launching " .. winDef.app .. "…") end
-            hs.application.launchOrFocus(winDef.app)
             waitForWindowAsync(winDef.app, claimedIds, 5, onWin)
         end
     end
 
-    if verbose then hs.alert.show("Applying layout: " .. layoutDef.name) end
+    -- Pre-launch all apps in parallel before sequential window processing
+    local launched = {}
+    for _, winDef in ipairs(windows) do
+        if winDef.app and not launched[winDef.app] and not hs.application.get(winDef.app) then
+            hs.application.launchOrFocus(winDef.app)
+            launched[winDef.app] = true
+        end
+    end
     processWindow(1)
 end
 

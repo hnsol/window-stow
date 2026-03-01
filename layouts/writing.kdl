@@ -1,10 +1,10 @@
 // writing.kdl
 keybind "ctrl+alt+2"
-description "Writing: Obsidian fullscreen"
+description "Writing: Notes fullscreen"
 hide_others true
 
 window {
-    app "Obsidian"
+    app "Notes"
     screen 0
     x "0%"
     y "0%"

@@ -4,17 +4,14 @@
 local M = {}
 
 -- Create a new chooser instance.
--- getLayouts: function() → array of layout tables (with .name, .description, .menu_key)
+-- getLayouts: function() → array of layout tables (with .name, .description)
 -- applyFn: function(layoutName)
 function M.new(getLayouts, applyFn)
     local self = {}
     local chooser = nil
 
     local function buildSubText(lay)
-        local parts = {}
-        if lay.menu_key then parts[#parts + 1] = "[" .. tostring(lay.menu_key) .. "]" end
-        if lay.description and lay.description ~= "" then parts[#parts + 1] = lay.description end
-        return table.concat(parts, " ")
+        return lay.description or ""
     end
 
     local function buildChoices()
@@ -36,15 +33,6 @@ function M.new(getLayouts, applyFn)
         end)
         chooser:searchSubText(true)
         chooser:placeholderText("Select layout…")
-        chooser:queryChangedCallback(function(q)
-            for _, lay in ipairs(getLayouts()) do
-                if lay.menu_key and q == tostring(lay.menu_key) then
-                    chooser:hide()
-                    applyFn(lay.name)
-                    return
-                end
-            end
-        end)
     end
 
     function self.show()

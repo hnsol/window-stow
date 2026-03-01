@@ -1,10 +1,10 @@
 // coding.kdl
 keybind "ctrl+alt+1"
-description "Dev: Chrome left, Ghostty split right"
+description "Dev: Safari left, Terminal split right"
 hide_others false
 
 window {
-    app "Google Chrome"
+    app "Safari"
     screen 0
     x "0%"
     y "0%"
@@ -14,7 +14,7 @@ window {
     focus false
 }
 window {
-    app "Ghostty"
+    app "Terminal"
     screen 0
     x "70%"
     y "0%"
@@ -24,7 +24,7 @@ window {
     focus true
 }
 window {
-    app "Ghostty"
+    app "Terminal"
     screen 0
     x "70%"
     y "50%"
