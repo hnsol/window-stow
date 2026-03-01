@@ -22,7 +22,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name    = "Ryoiki"
-obj.version = "1.1"
+obj.version = "1.2"
 obj.author  = "masaki39"
 obj.license = "MIT"
 
