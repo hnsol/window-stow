@@ -1,5 +1,5 @@
 -- hotkeys.lua
--- Hotkey utility for WindowLayout.spoon
+-- Hotkey utility for Ryoiki.spoon
 
 local M = {}
 
@@ -33,7 +33,7 @@ function M.bindAll(bindings)
             if ok and hk then
                 hotkeys[#hotkeys + 1] = hk
             else
-                print("WindowLayout hotkeys: failed to bind " .. tostring(binding.combo))
+                print("Ryoiki hotkeys: failed to bind " .. tostring(binding.combo))
             end
         end
     end

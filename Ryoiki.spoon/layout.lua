@@ -1,5 +1,5 @@
 -- layout.lua
--- Layout engine for WindowLayout.spoon
+-- Layout engine for Ryoiki.spoon
 
 local M = {}
 
@@ -7,15 +7,8 @@ local M = {}
 -- Accepts:
 --   number 0.0..1.0  → treated as fraction of dimension
 --   number > 1       → treated as absolute pixels
---   string "70%"     → fraction (but parser already converts these to 0-1 floats)
 local function resolveValue(value, dimension)
-    if type(value) == "string" then
-        local pct = value:match("^(%d+%.?%d*)%%$")
-        if pct then
-            return math.floor(tonumber(pct) / 100 * dimension + 0.5)
-        end
-        return tonumber(value) or 0
-    elseif type(value) == "number" then
+    if type(value) == "number" then
         if value >= 0 and value <= 1 then
             return math.floor(value * dimension + 0.5)
         else
@@ -47,20 +40,24 @@ local function findUnclaimedWindow(appName, claimedIds)
     return nil
 end
 
--- Poll until a standard window for appName appears, or timeout (seconds) is reached.
--- Returns the window or nil.
-local function waitForWindow(appName, claimedIds, timeout)
-    timeout = timeout or 3
+-- Async: poll until a standard window for appName appears, or timeout (seconds) is reached.
+-- Calls callback(win) with the window or nil.
+local function waitForWindowAsync(appName, claimedIds, timeout, callback)
     local interval = 0.05
     local elapsed = 0
-
-    while elapsed < timeout do
-        local win = findUnclaimedWindow(appName, claimedIds)
-        if win then return win end
-        hs.timer.usleep(math.floor(interval * 1e6))
+    local timer
+    timer = hs.timer.new(interval, function()
         elapsed = elapsed + interval
-    end
-    return nil
+        local win = findUnclaimedWindow(appName, claimedIds)
+        if win then
+            timer:stop()
+            callback(win)
+        elseif elapsed >= timeout then
+            timer:stop()
+            callback(nil)
+        end
+    end)
+    timer:start()
 end
 
 -- Collect the set of app names referenced in a layout definition.
@@ -74,7 +71,9 @@ end
 
 -- Apply a layout definition.
 -- layoutDef: { name, hide_others, windows=[{app, screen, x, y, w, h, reuse, focus}] }
-function M.apply(layoutDef)
+-- opts: { verbose = bool }
+function M.apply(layoutDef, opts)
+    local verbose = opts and opts.verbose or false
     local layoutAppSet = layoutAppNames(layoutDef)
 
     -- Hide non-layout apps if requested
@@ -87,56 +86,54 @@ function M.apply(layoutDef)
         end
     end
 
-    -- Track claimed window IDs to handle multiple windows from the same app
     local claimedIds = {}
     local focusWin = nil
+    local windows = layoutDef.windows or {}
 
-    for _, winDef in ipairs(layoutDef.windows or {}) do
-        if not winDef.app then goto continue end
-
-        local win = nil
-
-        if winDef.reuse ~= false then
-            -- Try to find an existing unclaimed window
-            win = findUnclaimedWindow(winDef.app, claimedIds)
+    local function processWindow(index)
+        if index > #windows then
+            if focusWin then focusWin:focus() end
+            if verbose then hs.alert.show("Layout applied: " .. layoutDef.name) end
+            return
         end
 
-        if not win then
-            -- Launch or focus the app, then wait for a new window
+        local winDef = windows[index]
+        if not winDef.app then
+            processWindow(index + 1)
+            return
+        end
+
+        local win = (winDef.reuse ~= false) and findUnclaimedWindow(winDef.app, claimedIds)
+
+        local function onWin(w)
+            if w then
+                claimedIds[w:id()] = true
+                local screen = getScreen(winDef.screen or 0)
+                local sf = screen:frame()
+                w:setFrame({
+                    x = sf.x + resolveValue(winDef.x or 0, sf.w),
+                    y = sf.y + resolveValue(winDef.y or 0, sf.h),
+                    w = resolveValue(winDef.w or 1, sf.w),
+                    h = resolveValue(winDef.h or 1, sf.h),
+                }, 0)
+                if winDef.focus then focusWin = w end
+            else
+                print("Ryoiki: could not get window for app: " .. tostring(winDef.app))
+            end
+            processWindow(index + 1)
+        end
+
+        if win then
+            onWin(win)
+        else
+            if verbose then hs.alert.show("Launching " .. winDef.app .. "…") end
             hs.application.launchOrFocus(winDef.app)
-            win = waitForWindow(winDef.app, claimedIds)
+            waitForWindowAsync(winDef.app, claimedIds, 5, onWin)
         end
-
-        if not win then
-            print("WindowLayout: could not get window for app: " .. tostring(winDef.app))
-            goto continue
-        end
-
-        claimedIds[win:id()] = true
-
-        -- Calculate frame
-        local screen = getScreen(winDef.screen or 0)
-        local sf = screen:frame() -- uses available area (excludes menu bar / Dock)
-
-        local ax = sf.x + resolveValue(winDef.x or 0, sf.w)
-        local ay = sf.y + resolveValue(winDef.y or 0, sf.h)
-        local aw = resolveValue(winDef.w or 1, sf.w)
-        local ah = resolveValue(winDef.h or 1, sf.h)
-
-        -- Move window (0 = no animation)
-        win:setFrame({ x = ax, y = ay, w = aw, h = ah }, 0)
-
-        if winDef.focus then
-            focusWin = win
-        end
-
-        ::continue::
     end
 
-    -- Focus the designated window last
-    if focusWin then
-        focusWin:focus()
-    end
+    if verbose then hs.alert.show("Applying layout: " .. layoutDef.name) end
+    processWindow(1)
 end
 
 return M

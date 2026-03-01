@@ -1,21 +1,28 @@
 -- chooser.lua
--- hs.chooser wrapper for WindowLayout.spoon
+-- hs.chooser wrapper for Ryoiki.spoon
 
 local M = {}
 
 -- Create a new chooser instance.
--- getLayouts: function() → array of layout tables (with .name and .description)
+-- getLayouts: function() → array of layout tables (with .name, .description, .menu_key)
 -- applyFn: function(layoutName)
 function M.new(getLayouts, applyFn)
     local self = {}
     local chooser = nil
 
+    local function buildSubText(lay)
+        local parts = {}
+        if lay.menu_key then parts[#parts + 1] = "[" .. tostring(lay.menu_key) .. "]" end
+        if lay.description and lay.description ~= "" then parts[#parts + 1] = lay.description end
+        return table.concat(parts, " ")
+    end
+
     local function buildChoices()
         local choices = {}
-        for _, layout in ipairs(getLayouts()) do
+        for _, lay in ipairs(getLayouts()) do
             choices[#choices + 1] = {
-                text = layout.name,
-                subText = layout.description or "",
+                text = lay.name,
+                subText = buildSubText(lay),
             }
         end
         return choices
@@ -29,6 +36,15 @@ function M.new(getLayouts, applyFn)
         end)
         chooser:searchSubText(true)
         chooser:placeholderText("Select layout…")
+        chooser:queryChangedCallback(function(q)
+            for _, lay in ipairs(getLayouts()) do
+                if lay.menu_key and q == tostring(lay.menu_key) then
+                    chooser:hide()
+                    applyFn(lay.name)
+                    return
+                end
+            end
+        end)
     end
 
     function self.show()
