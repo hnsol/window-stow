@@ -134,6 +134,7 @@ function M.apply(layoutDef)
                 local screen = getScreen(def.screen or 0)
                 local sf = screen:frame()
                 applyWindowFrame(win, def, sf)
+                win:raise()
                 if def.focus then focusWin = win end
                 onDone()
             else
@@ -144,6 +145,7 @@ function M.apply(layoutDef)
                         local screen = getScreen(def.screen or 0)
                         local sf = screen:frame()
                         applyWindowFrame(w, def, sf)
+                        w:raise()
                         if def.focus then focusWin = w end
                     else
                         hs.notify.show("Ryoiki", "", "Could not get window for: " .. tostring(def.app))
