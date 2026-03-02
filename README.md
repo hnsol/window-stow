@@ -1,7 +1,9 @@
 # Ryoiki.spoon
 
-Window layout manager for Hammerspoon.
-Define layouts as individual Lua files and apply them via hotkeys or a chooser menu.
+Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).
+Define layouts **across multi-screens** as individual Lua files and apply them via hotkeys or a chooser menu.
+
+![screenshot](./assets/demo.gif)
 
 ## Installation
 
