@@ -31,13 +31,13 @@ Add to `~/.hammerspoon/init.lua`:
 
 ```lua
 hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall.repos.masaki39 = {
+spoon.SpoonInstall.repos.ryoiki = {
     url = "https://github.com/masaki39/ryoiki",
-    desc = "masaki39's Hammerspoon Spoons",
+    desc = "Ryoiki Spoon repository",
     branch = "main",
 }
 spoon.SpoonInstall:andUse("Ryoiki", {
-    repo = "masaki39",
+    repo = "ryoiki",
     config = { layouts_dir = os.getenv("HOME") .. "/.hammerspoon/layouts" }, -- optional
     start = true,
     hotkeys = { showChooser = { {"ctrl", "alt"}, "m" } },
