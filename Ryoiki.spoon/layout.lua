@@ -105,17 +105,36 @@ function M.apply(layoutDef)
         end
     end
 
-    -- Pass 1: launch/unhide each app (deduplicated by app name)
-    local launched = {}
+    -- Pass 1: launch/unhide/open new windows as needed per app
+
+    -- Step A: count needed windows per app
+    local neededCount = {}
     for _, winDef in ipairs(windows) do
-        if winDef.app and not launched[winDef.app] then
-            local app = hs.application.get(winDef.app)
-            if not app then
-                hs.application.launchOrFocus(winDef.app)
-            elseif app:isHidden() then
-                app:unhide()
+        if winDef.app then
+            neededCount[winDef.app] = (neededCount[winDef.app] or 0) + 1
+        end
+    end
+
+    -- Step B: for each app, launch / unhide / open new windows as needed
+    for appName, needed in pairs(neededCount) do
+        local app = hs.application.get(appName)
+        if not app then
+            hs.application.launchOrFocus(appName)
+        elseif app:isHidden() then
+            app:unhide()
+        else
+            -- Count available standard windows
+            local available = 0
+            for _, win in ipairs(app:allWindows()) do
+                if win:isStandard() then available = available + 1 end
             end
-            launched[winDef.app] = true
+            -- Open new windows for any deficit
+            for _ = available + 1, needed do
+                local ok = app:selectMenuItem({"File", "New Window"})
+                if not ok then
+                    hs.execute('open -n -a "' .. appName .. '"')
+                end
+            end
         end
     end
 
