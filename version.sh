@@ -14,7 +14,7 @@ if [[ -z "$CURRENT" ]]; then
   exit 1
 fi
 
-IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT}.0"
+IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT"
 PATCH=${PATCH:-0}
 
 # --- Bump ---
