@@ -122,6 +122,17 @@ function M.apply(layoutDef)
             hs.application.launchOrFocus(appName)
         elseif app:isHidden() then
             app:unhide()
+            -- Fall through to also open new windows if needed
+            local available = 0
+            for _, win in ipairs(app:allWindows()) do
+                if win:isStandard() then available = available + 1 end
+            end
+            for _ = available + 1, needed do
+                local ok = app:selectMenuItem({"File", "New Window"})
+                if not ok then
+                    hs.execute('open -n -a "' .. appName:gsub('"', '\\"') .. '"')
+                end
+            end
         else
             -- Count available standard windows
             local available = 0
@@ -132,7 +143,7 @@ function M.apply(layoutDef)
             for _ = available + 1, needed do
                 local ok = app:selectMenuItem({"File", "New Window"})
                 if not ok then
-                    hs.execute('open -n -a "' .. appName .. '"')
+                    hs.execute('open -n -a "' .. appName:gsub('"', '\\"') .. '"')
                 end
             end
         end
