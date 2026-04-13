@@ -46,10 +46,11 @@ local function applyWindowFrame(win, def, sf)
     }, 0)
 end
 
--- Find a window for appName that is NOT in claimedIds.
+-- Find a window for bundleID that is NOT in claimedIds.
 -- Returns the window or nil.
-local function findUnclaimedWindow(appName, claimedIds)
-    local app = hs.application.get(appName)
+local function findUnclaimedWindow(bundleID, claimedIds)
+    local apps = hs.application.applicationsForBundleID(bundleID)
+    local app = apps and apps[1]
     if not app then return nil end
 
     for _, win in ipairs(app:allWindows()) do
@@ -61,15 +62,15 @@ local function findUnclaimedWindow(appName, claimedIds)
     return nil
 end
 
--- Async: poll until a standard window for appName appears, or timeout (seconds) is reached.
+-- Async: poll until a standard window for bundleID appears, or timeout (seconds) is reached.
 -- Calls callback(win) with the window or nil.
-local function waitForWindowAsync(appName, claimedIds, timeout, callback)
+local function waitForWindowAsync(bundleID, claimedIds, timeout, callback)
     local interval = 0.1
     local elapsed = 0
     local timer
     timer = hs.timer.new(interval, function()
         elapsed = elapsed + interval
-        local win = findUnclaimedWindow(appName, claimedIds)
+        local win = findUnclaimedWindow(bundleID, claimedIds)
         if win then
             timer:stop()
             M._activeTimers[timer] = nil
@@ -116,10 +117,11 @@ function M.apply(layoutDef)
     end
 
     -- Step B: for each app, launch / unhide / open new windows as needed
-    for appName, needed in pairs(neededCount) do
-        local app = hs.application.get(appName)
+    for bundleID, needed in pairs(neededCount) do
+        local apps = hs.application.applicationsForBundleID(bundleID)
+        local app = apps and apps[1]
         if not app then
-            hs.application.launchOrFocus(appName)
+            hs.application.launchOrFocusByBundleID(bundleID)
         elseif app:isHidden() then
             app:unhide()
             -- Fall through to also open new windows if needed
@@ -130,7 +132,7 @@ function M.apply(layoutDef)
             for _ = available + 1, needed do
                 local ok = app:selectMenuItem({"File", "New Window"})
                 if not ok then
-                    hs.execute('open -n -a "' .. appName:gsub('"', '\\"') .. '"')
+                    hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
                 end
             end
         else
@@ -143,7 +145,7 @@ function M.apply(layoutDef)
             for _ = available + 1, needed do
                 local ok = app:selectMenuItem({"File", "New Window"})
                 if not ok then
-                    hs.execute('open -n -a "' .. appName:gsub('"', '\\"') .. '"')
+                    hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
                 end
             end
         end

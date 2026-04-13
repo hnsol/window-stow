@@ -56,7 +56,7 @@ The default directory is `~/.hammerspoon/layouts/`.
 
 | Property | Required | Default | Description |
 |---|---|---|---|
-| `app` | **required** | — | application name (as shown in Activity Monitor) |
+| `app` | **required** | — | application bundle ID (e.g. `com.apple.Safari`) |
 | `screen` | optional | `0` | 0-based screen index |
 | `x` | optional | `0` | left edge as fraction of screen width (e.g. `0.5`) |
 | `y` | optional | `0` | top edge as fraction of screen height (e.g. `0.5`) |
@@ -71,12 +71,18 @@ return {
     keybind = "ctrl+alt+1",
     description = "Dev: Safari left, Terminal split right",
     windows = {
-        { app = "Safari",   screen = 0, x = 0,   y = 0,   w = 0.7, h = 1   },
-        { app = "Terminal", screen = 0, x = 0.7, y = 0,   w = 0.3, h = 0.5, focus = true },
-        { app = "Terminal", screen = 0, x = 0.7, y = 0.5, w = 0.3, h = 0.5 },
+        { app = "com.apple.Safari",   screen = 0, x = 0,   y = 0,   w = 0.7, h = 1   },
+        { app = "com.apple.Terminal", screen = 0, x = 0.7, y = 0,   w = 0.3, h = 0.5, focus = true },
+        { app = "com.apple.Terminal", screen = 0, x = 0.7, y = 0.5, w = 0.3, h = 0.5 },
     },
 }
 ```
+
+> [!TIP]
+> Run this in the terminal to find an app's bundle ID:
+> ```bash
+> osascript -e 'id of app "Safari"'
+> ```
 
 > [!TIP]
 > Run this in the Hammerspoon console to find your screen indices:
