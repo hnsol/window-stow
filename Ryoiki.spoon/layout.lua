@@ -87,10 +87,11 @@ end
 
 -- Apply a layout definition.
 -- layoutDef: { name, windows=[{app, screen, x, y, w, h, focus}] }
-function M.apply(layoutDef)
-    local claimedIds = {}
-    local focusWin   = nil
-    local windows    = layoutDef.windows or {}
+function M.apply(layoutDef, opts)
+    local claimedIds  = {}
+    local focusWin    = nil
+    local windows     = layoutDef.windows or {}
+    local centerCursor = opts and opts.centerCursor
 
     -- Count window slots that have an app (for pending completion tracking)
     local pending = 0
@@ -102,7 +103,15 @@ function M.apply(layoutDef)
     local function onDone()
         pending = pending - 1
         if pending == 0 then
-            if focusWin then focusWin:focus() end
+            if focusWin then
+                focusWin:focus()
+                if centerCursor then
+                    local ok, frame = pcall(function() return focusWin:frame() end)
+                    if ok and frame and (frame.w or 0) > 0 and (frame.h or 0) > 0 then
+                        hs.mouse.absolutePosition({ x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 })
+                    end
+                end
+            end
         end
     end
 

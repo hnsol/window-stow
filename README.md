@@ -18,6 +18,7 @@ Download [Ryoiki.spoon.zip](https://github.com/masaki39/ryoiki/raw/main/Spoons/R
 ```lua
 hs.loadSpoon("Ryoiki")
 spoon.Ryoiki.layouts_dir = "/path/to/your/layouts"  -- optional
+spoon.Ryoiki.centerCursor = true                     -- optional (default: false) move cursor to focused window center
 spoon.Ryoiki:start()
 spoon.Ryoiki:bindHotkeys({ showChooser = { {"ctrl", "alt"}, "m" } })
 ```
@@ -38,7 +39,10 @@ spoon.SpoonInstall.repos.ryoiki = {
 }
 spoon.SpoonInstall:andUse("Ryoiki", {
     repo = "ryoiki",
-    config = { layouts_dir = os.getenv("HOME") .. "/.hammerspoon/layouts" }, -- optional
+    config = {
+        layouts_dir  = os.getenv("HOME") .. "/.hammerspoon/layouts", -- optional
+        centerCursor = true,  -- optional (default: false) move cursor to focused window center
+    },
     start = true,
     hotkeys = { showChooser = { {"ctrl", "alt"}, "m" } },
 })

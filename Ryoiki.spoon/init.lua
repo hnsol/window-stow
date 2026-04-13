@@ -35,6 +35,8 @@ obj._layoutHotkeys = {} -- hs.hotkey objects for per-layout keybinds (rebuilt on
 obj._spoonHotkeys  = {} -- hs.hotkey objects for spoon-level bindings (showChooser etc.)
 obj._chooser       = nil -- chooser instance
 
+obj.centerCursor = false -- move cursor to center of focused window after layout apply
+
 -- Load (or reload) layouts from layouts_dir
 function obj:_loadLayouts()
 	local ok, result = pcall(parser.loadDir, self.layouts_dir)
@@ -112,7 +114,7 @@ end
 function obj:applyLayout(name)
 	for _, ld in ipairs(self._layouts) do
 		if ld.name == name then
-			layout.apply(ld)
+			layout.apply(ld, { centerCursor = self.centerCursor })
 			return
 		end
 	end
