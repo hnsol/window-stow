@@ -104,6 +104,7 @@ function M.apply(layoutDef, opts)
         pending = pending - 1
         if pending == 0 then
             if focusWin then
+                focusWin:raise()
                 focusWin:focus()
                 if centerCursor then
                     local ok, frame = pcall(function() return focusWin:frame() end)
@@ -133,28 +134,22 @@ function M.apply(layoutDef, opts)
             hs.application.launchOrFocusByBundleID(bundleID)
         elseif app:isHidden() then
             app:unhide()
-            -- Fall through to also open new windows if needed
-            local available = 0
-            for _, win in ipairs(app:allWindows()) do
-                if win:isStandard() then available = available + 1 end
-            end
-            for _ = available + 1, needed do
-                local ok = app:selectMenuItem({"File", "New Window"})
-                if not ok then
-                    hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
-                end
-            end
+            -- unhide is async; window counting skipped here — slow path will wait
         else
             -- Count available standard windows
             local available = 0
             for _, win in ipairs(app:allWindows()) do
                 if win:isStandard() then available = available + 1 end
             end
-            -- Open new windows for any deficit
-            for _ = available + 1, needed do
-                local ok = app:selectMenuItem({"File", "New Window"})
-                if not ok then
-                    hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
+            -- Only open new windows when some are already visible.
+            -- If available==0 the windows are likely in another Space (Electron apps
+            -- such as Obsidian don't expose cross-space windows via allWindows()).
+            if available > 0 then
+                for _ = available + 1, needed do
+                    local ok = app:selectMenuItem({"File", "New Window"})
+                    if not ok then
+                        hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
+                    end
                 end
             end
         end
