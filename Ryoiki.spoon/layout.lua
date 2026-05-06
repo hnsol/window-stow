@@ -141,15 +141,10 @@ function M.apply(layoutDef, opts)
             for _, win in ipairs(app:allWindows()) do
                 if win:isStandard() then available = available + 1 end
             end
-            -- Only open new windows when some are already visible.
-            -- If available==0 the windows are likely in another Space (Electron apps
-            -- such as Obsidian don't expose cross-space windows via allWindows()).
-            if available > 0 then
-                for _ = available + 1, needed do
-                    local ok = app:selectMenuItem({"File", "New Window"})
-                    if not ok then
-                        hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
-                    end
+            for _ = available + 1, needed do
+                local ok = app:selectMenuItem({"File", "New Window"})
+                if not ok then
+                    hs.execute('open -n -b "' .. bundleID:gsub('"', '\\"') .. '"')
                 end
             end
         end
