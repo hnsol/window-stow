@@ -71,9 +71,11 @@ function obj:start()
 	self:_bindLayoutHotkeys()
 
 	local builtins = {
-		{ name = "Tile All",     description = "Arrange visible windows in a grid on the main screen" },
-		{ name = "Maximize All", description = "Maximize all visible windows" },
-		{ name = "Unhide All",   description = "Restore all hidden application windows" },
+		{ name = "Tile All",            description = "Arrange visible windows in a grid on the cursor screen" },
+		{ name = "Maximize All",        description = "Maximize all visible windows" },
+		{ name = "Unhide All",          description = "Restore all hidden application windows" },
+		{ name = "Save Current Layout", description = "Save current window arrangement as a layout file" },
+		{ name = "Delete Layout",       description = "Delete an existing layout file" },
 	}
 
 	self._chooser = chooser.new(function()
@@ -102,13 +104,15 @@ function obj:stop()
 end
 
 -- Bind additional hotkeys — stored in _spoonHotkeys
--- map: { showChooser = { mods, key }, tileAll = { mods, key }, maximizeAll = { mods, key }, unhideAll = { mods, key } }
+-- map: { showChooser, tileAll, maximizeAll, unhideAll, saveLayout, deleteLayout } = { mods, key }
 function obj:bindHotkeys(map)
 	local actions = {
-		showChooser = function() if self._chooser then self._chooser.show() end end,
-		tileAll     = function() self:tileAll() end,
-		maximizeAll = function() self:maximizeAll() end,
-		unhideAll   = function() self:unhideAll() end,
+		showChooser  = function() if self._chooser then self._chooser.show() end end,
+		tileAll      = function() self:tileAll() end,
+		maximizeAll  = function() self:maximizeAll() end,
+		unhideAll    = function() self:unhideAll() end,
+		saveLayout   = function() self:showSaveChooser() end,
+		deleteLayout = function() self:showDeleteChooser() end,
 	}
 	for action, fn in pairs(actions) do
 		if map[action] then
@@ -121,9 +125,11 @@ end
 
 -- Apply a layout by name, or a built-in action name
 function obj:applyLayout(name)
-	if name == "Tile All"     then return self:tileAll() end
-	if name == "Maximize All" then return self:maximizeAll() end
-	if name == "Unhide All"   then return self:unhideAll() end
+	if name == "Tile All"            then return self:tileAll() end
+	if name == "Maximize All"        then return self:maximizeAll() end
+	if name == "Unhide All"          then return self:unhideAll() end
+	if name == "Save Current Layout" then return self:showSaveChooser() end
+	if name == "Delete Layout"       then return self:showDeleteChooser() end
 	for _, ld in ipairs(self._layouts) do
 		if ld.name == name then
 			layout.apply(ld, { centerCursor = self.centerCursor })
@@ -171,6 +177,104 @@ function obj:unhideAll()
 		if app:kind() == 1 then app:unhide() end
 	end
 	return self
+end
+
+-- Resolve symlinks in a directory path
+local function resolveDir(dir)
+	return hs.fs.pathToAbsolute(dir) or dir
+end
+
+-- Escape a string for embedding in a Lua string literal
+local function luaEscape(s)
+	return s:gsub('\\', '\\\\'):gsub('"', '\\"')
+end
+
+-- Save the current window arrangement as a .lua layout file
+function obj:saveCurrentLayout(name)
+	local lines = { "return {", "    windows = {" }
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		if win:isStandard() then
+			local app = win:application()
+			local bundleID = app and app:bundleID()
+			if bundleID then
+				local scr = win:screen()
+				local sf  = scr:frame()
+				local f   = win:frame()
+				lines[#lines + 1] = string.format(
+					'        { app = "%s", screen = "%s", x = %.4f, y = %.4f, w = %.4f, h = %.4f },',
+					luaEscape(bundleID), luaEscape(scr:name() or "primary"),
+					(f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
+					f.w / sf.w, f.h / sf.h
+				)
+			end
+		end
+	end
+	lines[#lines + 1] = "    },"
+	lines[#lines + 1] = "}"
+
+	local dir  = resolveDir(self.layouts_dir)
+	local path = dir .. "/" .. name .. ".lua"
+	local f    = io.open(path, "w")
+	if not f then
+		hs.notify.show("Ryoiki", "", "Could not write: " .. path)
+		return
+	end
+	f:write(table.concat(lines, "\n") .. "\n")
+	f:close()
+	self:reloadConfig()
+	hs.notify.show("Ryoiki", "", "Saved: " .. name)
+end
+
+-- Delete a layout file by name
+function obj:deleteLayout(name)
+	local dir  = resolveDir(self.layouts_dir)
+	local path = dir .. "/" .. name .. ".lua"
+	local ok, err = os.remove(path)
+	if ok then
+		self:reloadConfig()
+		hs.notify.show("Ryoiki", "", "Deleted: " .. name)
+	else
+		hs.notify.show("Ryoiki", "", "Could not delete: " .. tostring(err))
+	end
+end
+
+-- Show a chooser to name and save the current layout
+function obj:showSaveChooser()
+	local c = hs.chooser.new(function(choice)
+		if choice then self:saveCurrentLayout(choice.name) end
+	end)
+	c:searchSubText(false)
+	c:placeholderText("Layout name (type new or select to overwrite)…")
+	c:queryChangedCallback(function(query)
+		local choices = {}
+		if query and query ~= "" then
+			choices[#choices + 1] = { text = 'Save as "' .. query .. '"', name = query }
+		end
+		for _, ld in ipairs(self._layouts) do
+			choices[#choices + 1] = { text = ld.name .. "  (overwrite)", name = ld.name }
+		end
+		c:choices(choices)
+	end)
+	c:choices({})
+	c:show()
+end
+
+-- Show a chooser to select and delete a layout
+function obj:showDeleteChooser()
+	local choices = {}
+	for _, ld in ipairs(self._layouts) do
+		choices[#choices + 1] = { text = ld.name }
+	end
+	if #choices == 0 then
+		hs.notify.show("Ryoiki", "", "No layouts to delete")
+		return
+	end
+	local c = hs.chooser.new(function(choice)
+		if choice then self:deleteLayout(choice.text) end
+	end)
+	c:placeholderText("Select layout to delete…")
+	c:choices(choices)
+	c:show()
 end
 
 -- Reload layouts and rebind layout hotkeys only (spoon hotkeys preserved)

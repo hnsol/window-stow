@@ -103,15 +103,19 @@ The following actions require no layout file and are always available from the c
 | **Tile All** | Arrange all visible windows on the cursor screen in a grid |
 | **Maximize All** | Maximize all visible windows |
 | **Unhide All** | Restore all hidden application windows |
+| **Save Current Layout** | Capture current window positions and save as a layout file |
+| **Delete Layout** | Delete an existing layout file |
 
 Bind them to hotkeys in `bindHotkeys`:
 
 ```lua
 spoon.Ryoiki:bindHotkeys({
-    showChooser = { {"ctrl", "alt"}, "m" },
-    tileAll     = { {"ctrl", "alt"}, "t" },
-    maximizeAll = { {"ctrl", "alt"}, "f" },
-    unhideAll   = { {"ctrl", "alt"}, "u" },
+    showChooser  = { {"ctrl", "alt"}, "m" },
+    tileAll      = { {"ctrl", "alt"}, "t" },
+    maximizeAll  = { {"ctrl", "alt"}, "f" },
+    unhideAll    = { {"ctrl", "alt"}, "u" },
+    saveLayout   = { {"ctrl", "alt"}, "s" },
+    deleteLayout = { {"ctrl", "alt"}, "d" },
 })
 ```
 
@@ -121,6 +125,8 @@ Or call them directly:
 spoon.Ryoiki:tileAll()
 spoon.Ryoiki:maximizeAll()
 spoon.Ryoiki:unhideAll()
+spoon.Ryoiki:saveCurrentLayout("my-layout")
+spoon.Ryoiki:deleteLayout("my-layout")
 ```
 
 ## 🏷️ Version Management (for developers)
