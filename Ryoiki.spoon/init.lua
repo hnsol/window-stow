@@ -191,7 +191,22 @@ end
 
 -- Save the current window arrangement as a .lua layout file
 function obj:saveCurrentLayout(name)
-	local lines = { "return {", "    windows = {" }
+	-- Preserve keybind/description when overwriting an existing layout
+	local existingKeybind, existingDescription
+	for _, ld in ipairs(self._layouts) do
+		if ld.name == name then
+			existingKeybind    = ld.keybind
+			existingDescription = ld.description
+			break
+		end
+	end
+
+	local lines = { "return {" }
+	if existingKeybind    then lines[#lines + 1] = '    keybind = "'     .. luaEscape(existingKeybind)     .. '",' end
+	if existingDescription then lines[#lines + 1] = '    description = "' .. luaEscape(existingDescription) .. '",' end
+	lines[#lines + 1] = "    windows = {"
+
+	local focusedId = hs.window.focusedWindow() and hs.window.focusedWindow():id()
 	for _, win in ipairs(hs.window.visibleWindows()) do
 		if win:isStandard() then
 			local app = win:application()
@@ -200,11 +215,12 @@ function obj:saveCurrentLayout(name)
 				local scr = win:screen()
 				local sf  = scr:frame()
 				local f   = win:frame()
+				local focusStr = (win:id() == focusedId) and ", focus = true" or ""
 				lines[#lines + 1] = string.format(
-					'        { app = "%s", screen = "%s", x = %.4f, y = %.4f, w = %.4f, h = %.4f },',
+					'        { app = "%s", screen = "%s", x = %.4f, y = %.4f, w = %.4f, h = %.4f%s },',
 					luaEscape(bundleID), luaEscape(scr:name() or "primary"),
 					(f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
-					f.w / sf.w, f.h / sf.h
+					f.w / sf.w, f.h / sf.h, focusStr
 				)
 			end
 		end

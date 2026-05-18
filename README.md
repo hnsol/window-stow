@@ -1,9 +1,14 @@
 # Ryoiki.spoon
 
-Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).
-Define layouts **across multi-screens** as individual Lua files and apply them via hotkeys or a chooser menu.
+Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).  
+Define multi-screen window layouts as Lua files and apply them via hotkeys or a chooser menu.
 
-![screenshot](./assets/demo.gif)
+![chooser](./assets/chooser.png)
+
+- Layout files are plain Lua — easy to edit and version-control
+- Apply layouts by hotkey or from the chooser (`^J`/`^K` to navigate)
+- Address screens by name (`"primary"`, `"built-in"`, `"LG"`) or 0-based index
+- Built-in actions: Tile All, Maximize All, Unhide All, Save/Delete layouts
 
 ## 📦 Installation
 
@@ -18,7 +23,7 @@ Download [Ryoiki.spoon.zip](https://github.com/masaki39/ryoiki/raw/main/Spoons/R
 ```lua
 hs.loadSpoon("Ryoiki")
 spoon.Ryoiki.layouts_dir = "/path/to/your/layouts"  -- optional
-spoon.Ryoiki.centerCursor = true                     -- optional (default: false) move cursor to focused window center
+spoon.Ryoiki.centerCursor = true                     -- optional (default: false)
 spoon.Ryoiki:start()
 spoon.Ryoiki:bindHotkeys({ showChooser = { {"ctrl", "alt"}, "m" } })
 ```
@@ -40,8 +45,8 @@ spoon.SpoonInstall.repos.ryoiki = {
 spoon.SpoonInstall:andUse("Ryoiki", {
     repo = "ryoiki",
     config = {
-        layouts_dir  = os.getenv("HOME") .. "/.hammerspoon/layouts", -- optional
-        centerCursor = true,  -- optional (default: false) move cursor to focused window center
+        layouts_dir  = os.getenv("HOME") .. "/.hammerspoon/layouts",
+        centerCursor = true,
     },
     start = true,
     hotkeys = { showChooser = { {"ctrl", "alt"}, "m" } },
@@ -53,20 +58,10 @@ spoon.SpoonInstall:andUse("Ryoiki", {
 ## 📁 Layout Files
 
 Each `.lua` file in your layouts directory defines one layout.
-The filename (without extension) is used as the layout name.
+The filename (without extension) becomes the layout name shown in the chooser.
 The default directory is `~/.hammerspoon/layouts/`.
 
-### 🪟 Window Properties
-
-| Property | Required | Default | Description |
-|---|---|---|---|
-| `app` | **required** | — | application bundle ID (e.g. `com.apple.Safari`) |
-| `screen` | optional | `0` | screen index (0-based), `"primary"`, `"built-in"`, or partial display name (e.g. `"LG"`) |
-| `x` | optional | `0` | left edge as fraction of screen width (e.g. `0.5`) |
-| `y` | optional | `0` | top edge as fraction of screen height (e.g. `0.5`) |
-| `w` | optional | `1` | width as fraction of screen width (e.g. `0.7`) |
-| `h` | optional | `1` | height as fraction of screen height (e.g. `1`) |
-| `focus` | optional | `false` | focus this window after layout is applied |
+![demo](./assets/demo.gif)
 
 ### 📄 Example: `layouts/coding.lua`
 
@@ -75,12 +70,24 @@ return {
     keybind = "ctrl+alt+1",
     description = "Dev: Safari left, Terminal split right",
     windows = {
-        { app = "com.apple.Safari",   screen = 0, x = 0,   y = 0,   w = 0.7, h = 1   },
-        { app = "com.apple.Terminal", screen = 0, x = 0.7, y = 0,   w = 0.3, h = 0.5, focus = true },
-        { app = "com.apple.Terminal", screen = 0, x = 0.7, y = 0.5, w = 0.3, h = 0.5 },
+        { app = "com.apple.Safari",   screen = "primary", x = 0,   y = 0,   w = 0.7, h = 1   },
+        { app = "com.apple.Terminal", screen = "primary", x = 0.7, y = 0,   w = 0.3, h = 0.5, focus = true },
+        { app = "com.apple.Terminal", screen = "primary", x = 0.7, y = 0.5, w = 0.3, h = 0.5 },
     },
 }
 ```
+
+### 🪟 Window Properties
+
+| Property | Required | Default | Description |
+|---|---|---|---|
+| `app` | **required** | — | application bundle ID (e.g. `com.apple.Safari`) |
+| `screen` | optional | `0` | `0`-based index, `"primary"`, `"built-in"`, or partial display name (e.g. `"LG"`) |
+| `x` | optional | `0` | left edge as fraction of screen width |
+| `y` | optional | `0` | top edge as fraction of screen height |
+| `w` | optional | `1` | width as fraction of screen width |
+| `h` | optional | `1` | height as fraction of screen height |
+| `focus` | optional | `false` | focus this window after layout is applied |
 
 > [!TIP]
 > Run this in the terminal to find an app's bundle ID:
@@ -89,14 +96,18 @@ return {
 > ```
 
 > [!TIP]
-> Run this in the Hammerspoon console to find your screen names:
+> Run this in the Hammerspoon console to list screen indices and names:
 > ```lua
-> hs.inspect(hs.fnutils.map(hs.screen.allScreens(), function(s) return s:name() end))
+> for i, s in ipairs(hs.screen.allScreens()) do print(i-1, s:name()) end
 > ```
+> Use the index (`0`, `1`, …) or the name string (`"LG"`, `"built-in"`, …) as the `screen` value.
+> Index-based addressing is useful when the same monitor is always connected in the same slot.
 
 ## ⚡ Built-in Actions
 
-The following actions require no layout file and are always available from the chooser menu or via hotkeys:
+No layout file needed — these actions are always available from the chooser or via hotkeys.
+
+![tile-all](./assets/tile-all.gif)
 
 | Action | Description |
 |---|---|
@@ -105,8 +116,6 @@ The following actions require no layout file and are always available from the c
 | **Unhide All** | Restore all hidden application windows |
 | **Save Current Layout** | Capture current window positions and save as a layout file |
 | **Delete Layout** | Delete an existing layout file |
-
-Bind them to hotkeys in `bindHotkeys`:
 
 ```lua
 spoon.Ryoiki:bindHotkeys({
@@ -119,7 +128,7 @@ spoon.Ryoiki:bindHotkeys({
 })
 ```
 
-Or call them directly:
+Or call them directly from Lua:
 
 ```lua
 spoon.Ryoiki:tileAll()
