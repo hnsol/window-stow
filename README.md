@@ -61,7 +61,7 @@ The default directory is `~/.hammerspoon/layouts/`.
 | Property | Required | Default | Description |
 |---|---|---|---|
 | `app` | **required** | — | application bundle ID (e.g. `com.apple.Safari`) |
-| `screen` | optional | `0` | 0-based screen index |
+| `screen` | optional | `0` | screen index (0-based), `"primary"`, `"built-in"`, or partial display name (e.g. `"LG"`) |
 | `x` | optional | `0` | left edge as fraction of screen width (e.g. `0.5`) |
 | `y` | optional | `0` | top edge as fraction of screen height (e.g. `0.5`) |
 | `w` | optional | `1` | width as fraction of screen width (e.g. `0.7`) |
@@ -89,12 +89,39 @@ return {
 > ```
 
 > [!TIP]
-> Run this in the Hammerspoon console to find your screen indices:
+> Run this in the Hammerspoon console to find your screen names:
 > ```lua
-> for i, s in ipairs(hs.screen.allScreens()) do
->     print(i-1, s:name(), s:frame())
-> end
+> hs.inspect(hs.fnutils.map(hs.screen.allScreens(), function(s) return s:name() end))
 > ```
+
+## ⚡ Built-in Actions
+
+The following actions require no layout file and are always available from the chooser menu or via hotkeys:
+
+| Action | Description |
+|---|---|
+| **Tile All** | Arrange all visible windows on the cursor screen in a grid |
+| **Maximize All** | Maximize all visible windows |
+| **Unhide All** | Restore all hidden application windows |
+
+Bind them to hotkeys in `bindHotkeys`:
+
+```lua
+spoon.Ryoiki:bindHotkeys({
+    showChooser = { {"ctrl", "alt"}, "m" },
+    tileAll     = { {"ctrl", "alt"}, "t" },
+    maximizeAll = { {"ctrl", "alt"}, "f" },
+    unhideAll   = { {"ctrl", "alt"}, "u" },
+})
+```
+
+Or call them directly:
+
+```lua
+spoon.Ryoiki:tileAll()
+spoon.Ryoiki:maximizeAll()
+spoon.Ryoiki:unhideAll()
+```
 
 ## 🏷️ Version Management (for developers)
 

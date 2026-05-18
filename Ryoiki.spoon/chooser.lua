@@ -6,7 +6,8 @@ local M = {}
 -- Create a new chooser instance.
 -- getLayouts: function() → array of layout tables (with .name, .keybind, .description)
 -- applyFn: function(layoutName)
-function M.new(getLayouts, applyFn)
+-- builtins: optional array of { name, description } for built-in actions
+function M.new(getLayouts, applyFn, builtins)
     local self = {}
     local chooser = nil
 
@@ -36,6 +37,11 @@ function M.new(getLayouts, applyFn)
         local choices = {}
         for _, c in ipairs(withKey) do choices[#choices + 1] = c end
         for _, c in ipairs(noKey)   do choices[#choices + 1] = c end
+        if builtins then
+            for _, b in ipairs(builtins) do
+                choices[#choices + 1] = { text = b.name, subText = b.description or "Built-in action" }
+            end
+        end
         return choices
     end
 
