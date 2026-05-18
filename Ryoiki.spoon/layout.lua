@@ -29,11 +29,29 @@ local function resolveValue(value, dimension)
     return 0
 end
 
--- Get screen by 0-based index. Falls back to primary screen.
-local function getScreen(index)
-    local screens = hs.screen.allScreens()
-    local screen = screens[index + 1] -- Lua 1-based
-    return screen or hs.screen.primaryScreen()
+-- Get screen by 0-based index, or by string name/role.
+-- String values: "primary", "built-in", or partial display name (case-insensitive).
+local function getScreen(screen)
+    if type(screen) == "string" then
+        local s = screen:lower()
+        if s == "primary" then
+            return hs.screen.primaryScreen()
+        end
+        for _, scr in ipairs(hs.screen.allScreens()) do
+            local name = (scr:name() or ""):lower()
+            if s == "built-in" then
+                if name:find("built%-in") or name:find("color lcd") or name:find("retina") then
+                    return scr
+                end
+            elseif name:find(s, 1, true) then
+                return scr
+            end
+        end
+        return hs.screen.primaryScreen()
+    else
+        local screens = hs.screen.allScreens()
+        return screens[(screen or 0) + 1] or hs.screen.primaryScreen()
+    end
 end
 
 -- Apply a window def's position/size to an existing window object
