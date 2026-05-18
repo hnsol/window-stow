@@ -240,11 +240,14 @@ end
 
 -- Show a chooser to name and save the current layout
 function obj:showSaveChooser()
+	local navHks  = {}
+	local count   = 0
 	local c = hs.chooser.new(function(choice)
+		chooser.unbindNav(navHks)
 		if choice then self:saveCurrentLayout(choice.name) end
 	end)
 	c:searchSubText(false)
-	c:placeholderText("Layout name (type new or select to overwrite)…")
+	c:placeholderText("Layout name…  (^J ↓  ^K ↑)")
 	c:queryChangedCallback(function(query)
 		local choices = {}
 		if query and query ~= "" then
@@ -253,10 +256,12 @@ function obj:showSaveChooser()
 		for _, ld in ipairs(self._layouts) do
 			choices[#choices + 1] = { text = ld.name .. "  (overwrite)", name = ld.name }
 		end
+		count = #choices
 		c:choices(choices)
 	end)
 	c:choices({})
 	c:show()
+	navHks = chooser.bindNav(c, function() return count end)
 end
 
 -- Show a chooser to select and delete a layout
@@ -269,12 +274,15 @@ function obj:showDeleteChooser()
 		hs.notify.show("Ryoiki", "", "No layouts to delete")
 		return
 	end
+	local navHks = {}
 	local c = hs.chooser.new(function(choice)
+		chooser.unbindNav(navHks)
 		if choice then self:deleteLayout(choice.text) end
 	end)
-	c:placeholderText("Select layout to delete…")
+	c:placeholderText("Select layout to delete…  (^J ↓  ^K ↑)")
 	c:choices(choices)
 	c:show()
+	navHks = chooser.bindNav(c, function() return #choices end)
 end
 
 -- Reload layouts and rebind layout hotkeys only (spoon hotkeys preserved)

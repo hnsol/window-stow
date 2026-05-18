@@ -45,20 +45,45 @@ function M.new(getLayouts, applyFn, builtins)
         return choices
     end
 
+    local navHotkeys = {}
+    local choiceCount = 0
+
+    local function unbindNav()
+        for _, hk in ipairs(navHotkeys) do hk:delete() end
+        navHotkeys = {}
+    end
+
+    local function bindNav()
+        local function moveDown()
+            local row = chooser:selectedRow()
+            chooser:selectedRow(row < choiceCount and row + 1 or 1)
+        end
+        local function moveUp()
+            local row = chooser:selectedRow()
+            chooser:selectedRow(row > 1 and row - 1 or choiceCount)
+        end
+        navHotkeys[1] = hs.hotkey.bind({"ctrl"}, "j", moveDown, nil, moveDown)
+        navHotkeys[2] = hs.hotkey.bind({"ctrl"}, "k", moveUp,   nil, moveUp)
+    end
+
     local function onCreate()
         chooser = hs.chooser.new(function(choice)
+            unbindNav()
             if choice then
                 applyFn(choice.text)
             end
         end)
         chooser:searchSubText(true)
-        chooser:placeholderText("Select layout…")
+        chooser:placeholderText("Select layout…  (^J ↓  ^K ↑)")
     end
 
     function self.show()
         if not chooser then onCreate() end
-        chooser:choices(buildChoices())
+        local choices = buildChoices()
+        choiceCount = #choices
+        chooser:choices(choices)
         chooser:show()
+        bindNav()
     end
 
     function self.destroy()
@@ -69,6 +94,28 @@ function M.new(getLayouts, applyFn, builtins)
     end
 
     return self
+end
+
+-- Bind ctrl+j/k navigation to any hs.chooser instance.
+-- getCount: function() → number of current choices
+-- Returns a table of hotkey objects; pass to unbindNav when done.
+function M.bindNav(c, getCount)
+    local hks = {}
+    local function moveDown()
+        local row = c:selectedRow()
+        c:selectedRow(row < getCount() and row + 1 or 1)
+    end
+    local function moveUp()
+        local row = c:selectedRow()
+        c:selectedRow(row > 1 and row - 1 or getCount())
+    end
+    hks[1] = hs.hotkey.bind({"ctrl"}, "j", moveDown, nil, moveDown)
+    hks[2] = hs.hotkey.bind({"ctrl"}, "k", moveUp,   nil, moveUp)
+    return hks
+end
+
+function M.unbindNav(hks)
+    for _, hk in ipairs(hks) do hk:delete() end
 end
 
 return M
