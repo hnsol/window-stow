@@ -1,4 +1,4 @@
-# Ryoiki.spoon
+# Ryoiki(領域).spoon
 
 Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).  
 Define multi-screen window layouts as Lua files and apply them via hotkeys or a chooser menu.
