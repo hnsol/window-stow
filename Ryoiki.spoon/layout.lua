@@ -29,29 +29,62 @@ local function resolveValue(value, dimension)
     return 0
 end
 
--- Get screen by 0-based index, or by string name/role.
--- String values: "primary", "built-in", or partial display name (case-insensitive).
-local function getScreen(screen)
+-- Resolve a screen spec: strings are looked up in screenMap (built by buildScreenMap);
+-- numbers are 0-based indices into allScreens. Falls back to primaryScreen as safety net.
+local function getScreen(screen, screenMap)
     if type(screen) == "string" then
-        local s = screen:lower()
-        if s == "primary" then
-            return hs.screen.primaryScreen()
-        end
-        for _, scr in ipairs(hs.screen.allScreens()) do
-            local name = (scr:name() or ""):lower()
-            if s == "built-in" then
-                if name:find("built%-in") or name:find("color lcd") or name:find("retina") then
-                    return scr
-                end
-            elseif name:find(s, 1, true) then
-                return scr
-            end
-        end
-        return hs.screen.primaryScreen()
+        return (screenMap and screenMap[screen]) or hs.screen.primaryScreen()
     else
         local screens = hs.screen.allScreens()
         return screens[(screen or 0) + 1] or hs.screen.primaryScreen()
     end
+end
+
+-- Build a string→screen map for all string screen specs in windows.
+-- Unmatched specs are assigned to unused displays in allScreens order;
+-- if displays run out, multiple specs may share primaryScreen.
+local function buildScreenMap(windows)
+    local allScreens = hs.screen.allScreens()
+    local usedIds = {}
+    local unresolved = {}
+    local result = {}
+    local processed = {}
+
+    for _, def in ipairs(windows) do
+        local spec = def.screen
+        if type(spec) == "string" and not processed[spec] then
+            processed[spec] = true
+            local s = spec:lower()
+            local matched
+            if s == "primary" then
+                matched = hs.screen.primaryScreen()
+            else
+                for _, scr in ipairs(allScreens) do
+                    if (scr:name() or ""):lower():find(s, 1, true) then
+                        matched = scr; break
+                    end
+                end
+            end
+            if matched then
+                result[spec] = matched
+                usedIds[matched:id()] = true
+            else
+                table.insert(unresolved, spec)
+            end
+        end
+    end
+
+    local unused = {}
+    for _, scr in ipairs(allScreens) do
+        if not usedIds[scr:id()] then
+            table.insert(unused, scr)
+        end
+    end
+    for i, spec in ipairs(unresolved) do
+        result[spec] = unused[i] or hs.screen.primaryScreen()
+    end
+
+    return result
 end
 
 -- Apply a window def's position/size to an existing window object
@@ -110,6 +143,7 @@ function M.apply(layoutDef, opts)
     local focusWin    = nil
     local windows     = layoutDef.windows or {}
     local centerCursor = opts and opts.centerCursor
+    local screenMap   = buildScreenMap(windows)
 
     -- Count window slots that have an app (for pending completion tracking)
     local pending = 0
@@ -180,7 +214,7 @@ function M.apply(layoutDef, opts)
             if win then
                 -- Fast path: window already exists
                 claimedIds[win:id()] = true
-                local screen = getScreen(def.screen or 0)
+                local screen = getScreen(def.screen or 0, screenMap)
                 local sf = screen:frame()
                 applyWindowFrame(win, def, sf)
                 win:raise()
@@ -191,7 +225,7 @@ function M.apply(layoutDef, opts)
                 waitForWindowAsync(def.app, claimedIds, 5, function(w)
                     if w then
                         claimedIds[w:id()] = true
-                        local screen = getScreen(def.screen or 0)
+                        local screen = getScreen(def.screen or 0, screenMap)
                         local sf = screen:frame()
                         applyWindowFrame(w, def, sf)
                         w:raise()
