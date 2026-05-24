@@ -258,8 +258,11 @@ end
 function obj:showSaveChooser()
 	local navHks  = {}
 	local count   = 0
-	local c = hs.chooser.new(function(choice)
+	local c
+	c = hs.chooser.new(function(choice)
 		chooser.unbindNav(navHks)
+		c:delete()
+		c = nil
 		if choice then self:saveCurrentLayout(choice.name) end
 	end)
 	c:searchSubText(false)
@@ -291,8 +294,11 @@ function obj:showDeleteChooser()
 		return
 	end
 	local navHks = {}
-	local c = hs.chooser.new(function(choice)
+	local c
+	c = hs.chooser.new(function(choice)
 		chooser.unbindNav(navHks)
+		c:delete()
+		c = nil
 		if choice then self:deleteLayout(choice.text) end
 	end)
 	c:placeholderText("Select layout to delete…  (^J ↓  ^K ↑)")
