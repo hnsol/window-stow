@@ -23,7 +23,7 @@ obj.__index = obj
 
 obj.name = "WindowStow"
 obj.version = "2.2.2"
-obj.author = "masaki39"
+obj.author = "hnsol"
 obj.license = "MIT"
 
 -- Directory containing *.lua layout files; caller can override before :start()
@@ -351,57 +351,167 @@ function obj:cascadeWindows(wins)
 end
 
 -- Show a toggle-based chooser to select windows for cascade
-function obj:showCascadeChooser(selected)
+-- Show a chooser to order and select windows for cascade.
+-- States per window:
+--   ordered  (number prefix) — cascaded first, in specified order
+--   auto     (○ prefix)      — cascaded after ordered, in default order
+--   excluded (✗ prefix)      — not cascaded
+-- order    = array of window IDs in cascade order
+-- excluded = set {[id]=true} of excluded window IDs
+function obj:showCascadeChooser(order, excluded)
 	local allWins = cascadeTargets()
+	order    = order    or {}
+	excluded = excluded or {}
 
-	-- 初回: 全ウィンドウを選択状態に
-	if selected == nil then
-		selected = {}
-		for _, win in ipairs(allWins) do selected[win:id()] = true end
+	-- Build lookup sets
+	local orderedSet, excludedSet = {}, {}
+	for i, id in ipairs(order) do orderedSet[id]  = i    end
+	for id  in pairs(excluded) do excludedSet[id] = true end
+
+	-- Categorise windows
+	local orderedWins, autoWins, excludedWins = {}, {}, {}
+	for _, id in ipairs(order) do
+		for _, w in ipairs(allWins) do
+			if w:id() == id then orderedWins[#orderedWins + 1] = w; break end
+		end
+	end
+	for _, w in ipairs(allWins) do
+		if orderedSet[w:id()] then
+			-- already in orderedWins
+		elseif excludedSet[w:id()] then
+			excludedWins[#excludedWins + 1] = w
+		else
+			autoWins[#autoWins + 1] = w
+		end
 	end
 
-	-- 選択中のウィンドウ一覧を構築
-	local selectedWins = {}
-	for _, win in ipairs(allWins) do
-		if selected[win:id()] then selectedWins[#selectedWins + 1] = win end
+	-- Final cascade list: ordered first, then auto
+	local totalWins = {}
+	for _, w in ipairs(orderedWins) do totalWins[#totalWins + 1] = w end
+	for _, w in ipairs(autoWins)    do totalWins[#totalWins + 1] = w end
+
+	-- Helper: "AppName — Title"
+	local function appTitle(win)
+		local name  = (win:application() and win:application():name()) or "?"
+		local title = win:title() or ""
+		return name .. (title ~= "" and (" — " .. title) or "")
 	end
 
-	-- chooser の選択肢を構築
+	-- subText summary for Apply row
+	local parts = {}
+	if #orderedWins  > 0 then parts[#parts + 1] = #orderedWins  .. " ordered" end
+	if #autoWins     > 0 then parts[#parts + 1] = #autoWins     .. " auto"    end
+	if #excludedWins > 0 then parts[#parts + 1] = #excludedWins .. " excluded" end
+
+	-- Build choices: Apply header, ordered, auto, excluded
 	local choices = {}
 	choices[1] = {
-		text    = "Apply Cascade (" .. #selectedWins .. " windows)",
-		subText = "Arrange selected windows diagonally",
+		text    = "Apply Cascade (" .. #totalWins .. " windows)",
+		subText = table.concat(parts, " + "),
 		_apply  = true,
 	}
-	for _, win in ipairs(allWins) do
-		local mark    = selected[win:id()] and "✓" or "○"
-		local appName = (win:application() and win:application():name()) or "?"
-		local title   = win:title() or ""
+	for i, w in ipairs(orderedWins) do
 		choices[#choices + 1] = {
-			text   = mark .. " " .. appName .. (title ~= "" and (" — " .. title) or ""),
-			_winId = win:id(),
+			text    = i .. " " .. appTitle(w),
+			subText = "Ordered — → to exclude  ← to remove order",
+			_winId  = w:id(), _state = "ordered",
+		}
+	end
+	for _, w in ipairs(autoWins) do
+		choices[#choices + 1] = {
+			text    = "○ " .. appTitle(w),
+			subText = "Auto-included — → to order  ← to exclude",
+			_winId  = w:id(), _state = "auto",
+		}
+	end
+	for _, w in ipairs(excludedWins) do
+		choices[#choices + 1] = {
+			text    = "✗ " .. appTitle(w),
+			subText = "Excluded — → to include  ← to order",
+			_winId  = w:id(), _state = "excluded",
 		}
 	end
 
+	-- State transitions
+	-- Forward cycle:  auto → ordered → excluded → auto
+	local function advance(winId, state)
+		if state == "auto" then
+			local newOrder = {}
+			for _, id in ipairs(order) do newOrder[#newOrder + 1] = id end
+			newOrder[#newOrder + 1] = winId
+			self:showCascadeChooser(newOrder, excluded)
+		elseif state == "ordered" then
+			local newOrder = {}
+			for _, id in ipairs(order) do if id ~= winId then newOrder[#newOrder + 1] = id end end
+			local newEx = {}
+			for id in pairs(excluded) do newEx[id] = true end
+			newEx[winId] = true
+			self:showCascadeChooser(newOrder, newEx)
+		elseif state == "excluded" then
+			local newEx = {}
+			for id in pairs(excluded) do if id ~= winId then newEx[id] = true end end
+			self:showCascadeChooser(order, newEx)
+		end
+	end
+
+	-- Backward cycle: auto → excluded → ordered → auto
+	local function retreat(winId, state)
+		if state == "auto" then
+			local newEx = {}
+			for id in pairs(excluded) do newEx[id] = true end
+			newEx[winId] = true
+			self:showCascadeChooser(order, newEx)
+		elseif state == "excluded" then
+			local newOrder = {}
+			for _, id in ipairs(order) do newOrder[#newOrder + 1] = id end
+			newOrder[#newOrder + 1] = winId
+			local newEx = {}
+			for id in pairs(excluded) do if id ~= winId then newEx[id] = true end end
+			self:showCascadeChooser(newOrder, newEx)
+		elseif state == "ordered" then
+			local newOrder = {}
+			for _, id in ipairs(order) do if id ~= winId then newOrder[#newOrder + 1] = id end end
+			self:showCascadeChooser(newOrder, excluded)
+		end
+	end
+
+	-- Show chooser with hotkey bindings
 	local navHks = {}
 	local c
 	c = hs.chooser.new(function(choice)
-		chooser.unbindNav(navHks)
-		c:delete()
-		c = nil
+		for _, hk in ipairs(navHks) do hk:delete() end
+		navHks = {}
+		c:delete(); c = nil
 		if not choice then return end
 		if choice._apply then
-			self:cascadeWindows(selectedWins)
+			self:cascadeWindows(totalWins)
 		else
-			-- toggle して chooser を再表示
-			selected[choice._winId] = not selected[choice._winId]
-			self:showCascadeChooser(selected)
+			advance(choice._winId, choice._state)
 		end
 	end)
-	c:placeholderText("Toggle windows to cascade…  (^J ↓  ^K ↑)")
+
+	local function row() return c:selectedRow() end
+	local function ch(r) return (r >= 1 and r <= #choices) and choices[r] or nil end
+
+	local function moveUp()   local r = row(); c:selectedRow(r > 1 and r - 1 or #choices) end
+	local function moveDown() local r = row(); c:selectedRow(r < #choices and r + 1 or 1) end
+
+	navHks[1] = hs.hotkey.bind({"ctrl"}, "p", moveUp,   nil, moveUp)
+	navHks[2] = hs.hotkey.bind({"ctrl"}, "n", moveDown, nil, moveDown)
+	navHks[3] = hs.hotkey.bind({}, "right",
+		function()
+			local x = ch(row())
+			if x and x._winId then advance(x._winId, x._state) end
+		end)
+	navHks[4] = hs.hotkey.bind({}, "left",
+		function()
+			local x = ch(row())
+			if x and x._winId then retreat(x._winId, x._state) end
+		end)
+
+	c:placeholderText("Order windows…  (↑↓/^P^N  →state ←state)")
 	c:choices(choices)
 	c:show()
-	navHks = chooser.bindNav(c, function() return #choices end)
 end
 
 -- Reload layouts and rebind layout hotkeys only (spoon hotkeys preserved)
