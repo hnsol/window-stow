@@ -352,7 +352,19 @@ function obj:cascadeWindows(wins)
 		local offset = (i - 1) * S
 		win:setFrame({ x = x0 + offset, y = y0 + offset, w = winW, h = winH }, 0)
 	end
-	-- raise in reverse order so window #1 ends up at the front
+
+	-- Build cascade set for lookup
+	local cascadeSet = {}
+	for _, w in ipairs(wins) do cascadeSet[w:id()] = true end
+
+	-- Raise non-cascade windows first → they end up behind all cascade windows
+	for _, w in ipairs(hs.window.visibleWindows()) do
+		if w:isStandard() and w:screen() == screen and not cascadeSet[w:id()] then
+			w:raise()
+		end
+	end
+
+	-- Raise cascade windows in reverse: wins[N] first, wins[1] last → wins[1] frontmost
 	for i = N, 1, -1 do
 		wins[i]:raise()
 	end
