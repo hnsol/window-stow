@@ -120,7 +120,7 @@ function obj:bindURLEvents(map)
 	}
 	for action, eventName in pairs(map) do
 		if actions[action] then
-			hs.urlevent.bind(eventName, actions[action])
+			hs.urlevent.bind(eventName:lower(), actions[action])
 		end
 	end
 	return self
