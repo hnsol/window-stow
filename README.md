@@ -3,7 +3,7 @@
 Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).  
 Define multi-screen window layouts as Lua files, and apply them via hotkeys, a chooser menu, or URL scheme.
 
-![chooser](./assets/chooser.png)
+![chooser](./assets/chooser2.png)
 
 - Layout files are plain Lua — easy to edit and version-control
 - Apply layouts by hotkey or from the chooser
