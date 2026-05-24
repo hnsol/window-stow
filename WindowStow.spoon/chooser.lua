@@ -74,7 +74,7 @@ function M.new(getLayouts, applyFn, builtins)
             end
         end)
         chooser:searchSubText(true)
-        chooser:placeholderText("Select layout…  (^J ↓  ^K ↑)")
+        chooser:placeholderText("Select layout…")
     end
 
     function self.show()

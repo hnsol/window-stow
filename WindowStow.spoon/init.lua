@@ -270,7 +270,7 @@ function obj:showSaveChooser()
 		if choice then self:saveCurrentLayout(choice.name) end
 	end)
 	c:searchSubText(false)
-	c:placeholderText("Layout name…  (^J ↓  ^K ↑)")
+	c:placeholderText("Layout name…")
 	c:queryChangedCallback(function(query)
 		local choices = {}
 		if query and query ~= "" then
@@ -305,7 +305,7 @@ function obj:showDeleteChooser()
 		c = nil
 		if choice then self:deleteLayout(choice.text) end
 	end)
-	c:placeholderText("Select layout to delete…  (^J ↓  ^K ↑)")
+	c:placeholderText("Select layout to delete…")
 	c:choices(choices)
 	c:show()
 	navHks = chooser.bindNav(c, function() return #choices end)
@@ -346,6 +346,10 @@ function obj:cascadeWindows(wins)
 	for i, win in ipairs(wins) do
 		local offset = (i - 1) * S
 		win:setFrame({ x = x0 + offset, y = y0 + offset, w = winW, h = winH }, 0)
+	end
+	-- raise in reverse order so window #1 ends up at the front
+	for i = N, 1, -1 do
+		wins[i]:raise()
 	end
 	return self
 end
@@ -509,7 +513,7 @@ function obj:showCascadeChooser(order, excluded)
 			if x and x._winId then retreat(x._winId, x._state) end
 		end)
 
-	c:placeholderText("Order windows…  (↑↓/^P^N  →state ←state)")
+	c:placeholderText("Order windows…")
 	c:choices(choices)
 	c:show()
 end
