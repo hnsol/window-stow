@@ -1,5 +1,5 @@
 -- layout.lua
--- Layout engine for Ryoiki.spoon
+-- Layout engine for WindowStow.spoon
 
 local M = {}
 
@@ -231,7 +231,7 @@ function M.apply(layoutDef, opts)
                         w:raise()
                         if def.focus then focusWin = w end
                     else
-                        hs.notify.show("Ryoiki", "", "Could not get window for: " .. tostring(def.app))
+                        hs.notify.show("WindowStow", "", "Could not get window for: " .. tostring(def.app))
                     end
                     onDone()
                 end)

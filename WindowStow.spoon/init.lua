@@ -1,0 +1,548 @@
+-- WindowStow.spoon/init.lua
+-- Spoon entry point for WindowStow
+
+-- Resolve the directory containing this file so we can dofile sibling modules
+local _spoonDir = (function()
+	local info = debug.getinfo(1, "S")
+	local src = info.source:match("^@(.+)$") or info.source
+	return src:match("^(.+)/[^/]+$") or "."
+end)()
+
+local function _require(name)
+	return dofile(_spoonDir .. "/" .. name .. ".lua")
+end
+
+local parser = _require("parser")
+local hotkeys = _require("hotkeys")
+local layout = _require("layout")
+local chooser = _require("chooser")
+
+-- Spoon object
+local obj = {}
+obj.__index = obj
+
+obj.name = "WindowStow"
+obj.version = "2.2.2"
+obj.author = "hnsol"
+obj.license = "MIT"
+
+-- Directory containing *.lua layout files; caller can override before :start()
+obj.layouts_dir = hs.configdir .. "/layouts"
+
+-- Internal state
+obj._layouts       = {} -- array of parsed layout tables
+obj._layoutHotkeys = {} -- hs.hotkey objects for per-layout keybinds (rebuilt on reloadConfig)
+obj._spoonHotkeys  = {} -- hs.hotkey objects for spoon-level bindings (showChooser etc.)
+obj._chooser       = nil -- chooser instance
+
+obj.centerCursor   = false -- move cursor to center of focused window after layout apply
+obj.cascadeStagger = nil   -- stagger amount in pixels for Cascade Windows (nil = auto)
+
+-- Load (or reload) layouts from layouts_dir
+function obj:_loadLayouts()
+	local ok, result = pcall(parser.loadDir, self.layouts_dir)
+	if ok then
+		self._layouts = result
+	else
+		hs.notify.show("WindowStow", "", "Failed to load layouts: " .. tostring(result))
+		self._layouts = {}
+	end
+end
+
+-- Bind per-layout hotkeys (stored in _layoutHotkeys)
+function obj:_bindLayoutHotkeys()
+	local bindings = {}
+	for _, ld in ipairs(self._layouts) do
+		if ld.keybind then
+			local name = ld.name
+			bindings[#bindings + 1] = {
+				combo = ld.keybind,
+				fn = function()
+					self:applyLayout(name)
+				end,
+			}
+		end
+	end
+	self._layoutHotkeys = hotkeys.bindAll(bindings)
+end
+
+-- Start the spoon: load config, bind hotkeys, create chooser
+function obj:start()
+	self:_loadLayouts()
+	self:_bindLayoutHotkeys()
+
+	local builtins = {
+		{ name = "Tile All",            description = "Arrange visible windows in a grid on the cursor screen" },
+		{ name = "Maximize All",        description = "Maximize all visible windows" },
+		{ name = "Unhide All",          description = "Restore all hidden application windows" },
+		{ name = "Cascade Windows",     description = "Stagger visible windows diagonally on screen (excludes Finder)" },
+		{ name = "Save Current Layout", description = "Save current window arrangement as a layout file" },
+		{ name = "Delete Layout",       description = "Delete an existing layout file" },
+	}
+
+	self._chooser = chooser.new(function()
+		return self._layouts
+	end, function(name)
+		self:applyLayout(name)
+	end, builtins)
+
+	return self
+end
+
+-- Stop: delete all hotkeys, destroy chooser, cancel pending layout timers
+function obj:stop()
+	layout.cancelPending()
+	hotkeys.deleteAll(self._layoutHotkeys)
+	hotkeys.deleteAll(self._spoonHotkeys)
+	self._layoutHotkeys = {}
+	self._spoonHotkeys  = {}
+
+	if self._chooser then
+		self._chooser.destroy()
+		self._chooser = nil
+	end
+
+	return self
+end
+
+-- Bind additional hotkeys — stored in _spoonHotkeys
+-- map: { showChooser, tileAll, maximizeAll, unhideAll, cascadeWindows, saveLayout, deleteLayout } = { mods, key }
+function obj:bindHotkeys(map)
+	local actions = {
+		showChooser    = function() if self._chooser then self._chooser.show() end end,
+		tileAll        = function() self:tileAll() end,
+		maximizeAll    = function() self:maximizeAll() end,
+		unhideAll      = function() self:unhideAll() end,
+		cascadeWindows = function() self:showCascadeChooser() end,
+		saveLayout     = function() self:showSaveChooser() end,
+		deleteLayout   = function() self:showDeleteChooser() end,
+	}
+	for action, fn in pairs(actions) do
+		if map[action] then
+			local mods, key = map[action][1], map[action][2]
+			self._spoonHotkeys[#self._spoonHotkeys + 1] = hs.hotkey.bind(mods, key, fn)
+		end
+	end
+	return self
+end
+
+-- Apply a layout by name, or a built-in action name
+function obj:applyLayout(name)
+	if name == "Tile All"            then return self:tileAll() end
+	if name == "Maximize All"        then return self:maximizeAll() end
+	if name == "Unhide All"          then return self:unhideAll() end
+	if name == "Cascade Windows"     then return self:showCascadeChooser() end
+	if name == "Save Current Layout" then return self:showSaveChooser() end
+	if name == "Delete Layout"       then return self:showDeleteChooser() end
+	for _, ld in ipairs(self._layouts) do
+		if ld.name == name then
+			layout.apply(ld, { centerCursor = self.centerCursor })
+			return
+		end
+	end
+	hs.notify.show("WindowStow", "", "Layout not found: " .. tostring(name))
+end
+
+-- Arrange all visible standard windows on the main screen in a grid
+function obj:tileAll()
+	local screen = hs.screen.find(hs.mouse.absolutePosition()) or hs.screen.mainScreen()
+	local sf = screen:frame()
+	local windows = {}
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		if win:isStandard() and win:screen() == screen then
+			windows[#windows + 1] = win
+		end
+	end
+	local n = #windows
+	if n == 0 then return self end
+	local cols = math.ceil(math.sqrt(n))
+	local rows = math.ceil(n / cols)
+	local w = sf.w / cols
+	local h = sf.h / rows
+	for i, win in ipairs(windows) do
+		local col = (i - 1) % cols
+		local row = math.floor((i - 1) / cols)
+		win:setFrame({ x = sf.x + col * w, y = sf.y + row * h, w = w, h = h }, 0)
+	end
+	return self
+end
+
+-- Maximize all visible standard windows
+function obj:maximizeAll()
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		if win:isStandard() then win:maximize(0) end
+	end
+	return self
+end
+
+-- Unhide all running GUI applications
+function obj:unhideAll()
+	for _, app in ipairs(hs.application.runningApplications()) do
+		if app:kind() == 1 then app:unhide() end
+	end
+	return self
+end
+
+-- Resolve symlinks in a directory path
+local function resolveDir(dir)
+	return hs.fs.pathToAbsolute(dir) or dir
+end
+
+-- Escape a string for embedding in a Lua string literal
+local function luaEscape(s)
+	return s:gsub('\\', '\\\\'):gsub('"', '\\"')
+end
+
+-- Save the current window arrangement as a .lua layout file
+function obj:saveCurrentLayout(name)
+	-- Preserve keybind/description when overwriting an existing layout
+	local existingKeybind, existingDescription
+	for _, ld in ipairs(self._layouts) do
+		if ld.name == name then
+			existingKeybind    = ld.keybind
+			existingDescription = ld.description
+			break
+		end
+	end
+
+	local lines = { "return {" }
+	if existingKeybind    then lines[#lines + 1] = '    keybind = "'     .. luaEscape(existingKeybind)     .. '",' end
+	if existingDescription then lines[#lines + 1] = '    description = "' .. luaEscape(existingDescription) .. '",' end
+	lines[#lines + 1] = "    windows = {"
+
+	local focusedId = hs.window.focusedWindow() and hs.window.focusedWindow():id()
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		if win:isStandard() then
+			local app = win:application()
+			local bundleID = app and app:bundleID()
+			if bundleID then
+				local scr = win:screen()
+				local sf  = scr:frame()
+				local f   = win:frame()
+				local focusStr = (win:id() == focusedId) and ", focus = true" or ""
+				lines[#lines + 1] = string.format(
+					'        { app = "%s", screen = "%s", x = %.4f, y = %.4f, w = %.4f, h = %.4f%s },',
+					luaEscape(bundleID), luaEscape(scr:name() or "primary"),
+					(f.x - sf.x) / sf.w, (f.y - sf.y) / sf.h,
+					f.w / sf.w, f.h / sf.h, focusStr
+				)
+			end
+		end
+	end
+	lines[#lines + 1] = "    },"
+	lines[#lines + 1] = "}"
+
+	local dir  = resolveDir(self.layouts_dir)
+	local path = dir .. "/" .. name .. ".lua"
+	local f    = io.open(path, "w")
+	if not f then
+		hs.notify.show("WindowStow", "", "Could not write: " .. path)
+		return
+	end
+	f:write(table.concat(lines, "\n") .. "\n")
+	f:close()
+	self:reloadConfig()
+	hs.notify.show("WindowStow", "", "Saved: " .. name)
+end
+
+-- Delete a layout file by name
+function obj:deleteLayout(name)
+	local dir  = resolveDir(self.layouts_dir)
+	local path = dir .. "/" .. name .. ".lua"
+	local ok, err = os.remove(path)
+	if ok then
+		self:reloadConfig()
+		hs.notify.show("WindowStow", "", "Deleted: " .. name)
+	else
+		hs.notify.show("WindowStow", "", "Could not delete: " .. tostring(err))
+	end
+end
+
+-- Show a chooser to name and save the current layout
+function obj:showSaveChooser()
+	local navHks  = {}
+	local count   = 0
+	local c
+	c = hs.chooser.new(function(choice)
+		chooser.unbindNav(navHks)
+		c:delete()
+		c = nil
+		if choice then self:saveCurrentLayout(choice.name) end
+	end)
+	c:searchSubText(false)
+	c:placeholderText("Layout name…")
+	c:queryChangedCallback(function(query)
+		local choices = {}
+		if query and query ~= "" then
+			choices[#choices + 1] = { text = 'Save as "' .. query .. '"', name = query }
+		end
+		for _, ld in ipairs(self._layouts) do
+			choices[#choices + 1] = { text = ld.name .. "  (overwrite)", name = ld.name }
+		end
+		count = #choices
+		c:choices(choices)
+	end)
+	c:choices({})
+	c:show()
+	navHks = chooser.bindNav(c, function() return count end)
+end
+
+-- Show a chooser to select and delete a layout
+function obj:showDeleteChooser()
+	local choices = {}
+	for _, ld in ipairs(self._layouts) do
+		choices[#choices + 1] = { text = ld.name }
+	end
+	if #choices == 0 then
+		hs.notify.show("WindowStow", "", "No layouts to delete")
+		return
+	end
+	local navHks = {}
+	local c
+	c = hs.chooser.new(function(choice)
+		chooser.unbindNav(navHks)
+		c:delete()
+		c = nil
+		if choice then self:deleteLayout(choice.text) end
+	end)
+	c:placeholderText("Select layout to delete…")
+	c:choices(choices)
+	c:show()
+	navHks = chooser.bindNav(c, function() return #choices end)
+end
+
+-- Collect visible non-Finder standard windows on the cursor screen
+local function cascadeTargets(screen)
+	screen = screen or hs.screen.find(hs.mouse.absolutePosition()) or hs.screen.mainScreen()
+	local wins = {}
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		local app = win:application()
+		if win:isStandard() and win:screen() == screen
+			and app and app:bundleID() ~= "com.apple.finder" then
+			wins[#wins + 1] = win
+		end
+	end
+	-- sort top-left first: ascending by (x + y) of the window's top-left corner
+	table.sort(wins, function(a, b)
+		local fa, fb = a:frame(), b:frame()
+		return (fa.x + fa.y) < (fb.x + fb.y)
+	end)
+	return wins, screen
+end
+
+-- Arrange wins in a diagonal cascade on screen
+function obj:cascadeWindows(wins)
+	if not wins or #wins == 0 then return self end
+	local screen = wins[1]:screen() or hs.screen.mainScreen()
+	local sf     = screen:frame()
+
+	local marginX = sf.w * 0.05
+	local marginY = sf.h * 0.05
+	local x0      = sf.x + marginX       -- 左端（5%マージン）
+	local y0      = sf.y + marginY       -- 上端（5%マージン）
+	local areaW   = sf.w * 0.90          -- 使用可能幅（左右各5%）
+	local areaH   = sf.h * 0.95          -- 使用可能高さ（上5%、下0%）
+
+	local N = #wins
+	local S = self.cascadeStagger or math.min(60, math.max(20, math.floor(sf.w * 0.02)))
+	local winW = math.max(areaW * 0.4, areaW - (N - 1) * S)
+	local winH = math.max(areaH * 0.4, areaH - (N - 1) * S)
+
+	for i, win in ipairs(wins) do
+		local offset = (i - 1) * S
+		win:setFrame({ x = x0 + offset, y = y0 + offset, w = winW, h = winH }, 0)
+	end
+
+	-- Build cascade set for lookup
+	local cascadeSet = {}
+	for _, w in ipairs(wins) do cascadeSet[w:id()] = true end
+
+	-- Raise non-cascade windows first → they end up behind all cascade windows
+	for _, w in ipairs(hs.window.visibleWindows()) do
+		if w:isStandard() and w:screen() == screen and not cascadeSet[w:id()] then
+			w:raise()
+		end
+	end
+
+	-- Raise cascade windows in reverse: wins[N] first, wins[1] last → wins[1] frontmost
+	for i = N, 1, -1 do
+		wins[i]:raise()
+	end
+	return self
+end
+
+-- Show a toggle-based chooser to select windows for cascade
+-- Show a chooser to order and select windows for cascade.
+-- States per window:
+--   ordered  (number prefix) — cascaded first, in specified order
+--   auto     (○ prefix)      — cascaded after ordered, in default order
+--   excluded (✗ prefix)      — not cascaded
+-- order    = array of window IDs in cascade order
+-- excluded = set {[id]=true} of excluded window IDs
+function obj:showCascadeChooser(order, excluded)
+	local allWins = cascadeTargets()
+	order    = order    or {}
+	excluded = excluded or {}
+
+	-- Build lookup sets
+	local orderedSet, excludedSet = {}, {}
+	for i, id in ipairs(order) do orderedSet[id]  = i    end
+	for id  in pairs(excluded) do excludedSet[id] = true end
+
+	-- Categorise windows
+	local orderedWins, autoWins, excludedWins = {}, {}, {}
+	for _, id in ipairs(order) do
+		for _, w in ipairs(allWins) do
+			if w:id() == id then orderedWins[#orderedWins + 1] = w; break end
+		end
+	end
+	for _, w in ipairs(allWins) do
+		if orderedSet[w:id()] then
+			-- already in orderedWins
+		elseif excludedSet[w:id()] then
+			excludedWins[#excludedWins + 1] = w
+		else
+			autoWins[#autoWins + 1] = w
+		end
+	end
+
+	-- Final cascade list: ordered first, then auto
+	local totalWins = {}
+	for _, w in ipairs(orderedWins) do totalWins[#totalWins + 1] = w end
+	for _, w in ipairs(autoWins)    do totalWins[#totalWins + 1] = w end
+
+	-- Helper: "AppName — Title"
+	local function appTitle(win)
+		local name  = (win:application() and win:application():name()) or "?"
+		local title = win:title() or ""
+		return name .. (title ~= "" and (" — " .. title) or "")
+	end
+
+	-- subText summary for Apply row
+	local parts = {}
+	if #orderedWins  > 0 then parts[#parts + 1] = #orderedWins  .. " ordered" end
+	if #autoWins     > 0 then parts[#parts + 1] = #autoWins     .. " auto"    end
+	if #excludedWins > 0 then parts[#parts + 1] = #excludedWins .. " excluded" end
+
+	-- Build choices: Apply header, ordered, auto, excluded
+	local choices = {}
+	choices[1] = {
+		text    = "Apply Cascade (" .. #totalWins .. " windows)",
+		subText = table.concat(parts, " + "),
+		_apply  = true,
+	}
+	for i, w in ipairs(orderedWins) do
+		choices[#choices + 1] = {
+			text    = i .. " " .. appTitle(w),
+			subText = "Ordered — → to exclude  ← to remove order",
+			_winId  = w:id(), _state = "ordered",
+		}
+	end
+	for _, w in ipairs(autoWins) do
+		choices[#choices + 1] = {
+			text    = "○ " .. appTitle(w),
+			subText = "Auto-included — → to order  ← to exclude",
+			_winId  = w:id(), _state = "auto",
+		}
+	end
+	for _, w in ipairs(excludedWins) do
+		choices[#choices + 1] = {
+			text    = "✗ " .. appTitle(w),
+			subText = "Excluded — → to include  ← to order",
+			_winId  = w:id(), _state = "excluded",
+		}
+	end
+
+	-- State transitions
+	-- Forward cycle:  auto → ordered → excluded → auto
+	local function advance(winId, state)
+		if state == "auto" then
+			local newOrder = {}
+			for _, id in ipairs(order) do newOrder[#newOrder + 1] = id end
+			newOrder[#newOrder + 1] = winId
+			self:showCascadeChooser(newOrder, excluded)
+		elseif state == "ordered" then
+			local newOrder = {}
+			for _, id in ipairs(order) do if id ~= winId then newOrder[#newOrder + 1] = id end end
+			local newEx = {}
+			for id in pairs(excluded) do newEx[id] = true end
+			newEx[winId] = true
+			self:showCascadeChooser(newOrder, newEx)
+		elseif state == "excluded" then
+			local newEx = {}
+			for id in pairs(excluded) do if id ~= winId then newEx[id] = true end end
+			self:showCascadeChooser(order, newEx)
+		end
+	end
+
+	-- Backward cycle: auto → excluded → ordered → auto
+	local function retreat(winId, state)
+		if state == "auto" then
+			local newEx = {}
+			for id in pairs(excluded) do newEx[id] = true end
+			newEx[winId] = true
+			self:showCascadeChooser(order, newEx)
+		elseif state == "excluded" then
+			local newOrder = {}
+			for _, id in ipairs(order) do newOrder[#newOrder + 1] = id end
+			newOrder[#newOrder + 1] = winId
+			local newEx = {}
+			for id in pairs(excluded) do if id ~= winId then newEx[id] = true end end
+			self:showCascadeChooser(newOrder, newEx)
+		elseif state == "ordered" then
+			local newOrder = {}
+			for _, id in ipairs(order) do if id ~= winId then newOrder[#newOrder + 1] = id end end
+			self:showCascadeChooser(newOrder, excluded)
+		end
+	end
+
+	-- Show chooser with hotkey bindings
+	local navHks = {}
+	local c
+	c = hs.chooser.new(function(choice)
+		for _, hk in ipairs(navHks) do hk:delete() end
+		navHks = {}
+		c:delete(); c = nil
+		if not choice then return end
+		if choice._apply then
+			self:cascadeWindows(totalWins)
+		else
+			advance(choice._winId, choice._state)
+		end
+	end)
+
+	local function row() return c:selectedRow() end
+	local function ch(r) return (r >= 1 and r <= #choices) and choices[r] or nil end
+
+	local function moveUp()   local r = row(); c:selectedRow(r > 1 and r - 1 or #choices) end
+	local function moveDown() local r = row(); c:selectedRow(r < #choices and r + 1 or 1) end
+
+	navHks[1] = hs.hotkey.bind({"ctrl"}, "p", moveUp,   nil, moveUp)
+	navHks[2] = hs.hotkey.bind({"ctrl"}, "n", moveDown, nil, moveDown)
+	navHks[3] = hs.hotkey.bind({}, "right",
+		function()
+			local x = ch(row())
+			if x and x._winId then advance(x._winId, x._state) end
+		end)
+	navHks[4] = hs.hotkey.bind({}, "left",
+		function()
+			local x = ch(row())
+			if x and x._winId then retreat(x._winId, x._state) end
+		end)
+
+	c:placeholderText("Order windows…")
+	c:choices(choices)
+	c:show()
+end
+
+-- Reload layouts and rebind layout hotkeys only (spoon hotkeys preserved)
+function obj:reloadConfig()
+	layout.cancelPending()
+	hotkeys.deleteAll(self._layoutHotkeys)
+	self._layoutHotkeys = {}
+	self:_loadLayouts()
+	self:_bindLayoutHotkeys()
+	-- Keep chooser alive; it pulls layouts lazily via getLayouts()
+end
+
+return obj

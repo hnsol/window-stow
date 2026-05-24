@@ -1,4 +1,4 @@
-# Ryoiki(領域).spoon
+# WindowStow.spoon
 
 Window layout manager for [Hammerspoon](https://www.hammerspoon.org/).  
 Define multi-screen window layouts as Lua files and apply them via hotkeys or a chooser menu.
@@ -8,7 +8,7 @@ Define multi-screen window layouts as Lua files and apply them via hotkeys or a 
 - Layout files are plain Lua — easy to edit and version-control
 - Apply layouts by hotkey or from the chooser (`^J`/`^K` to navigate)
 - Address screens by name (`"primary"`, `"built-in"`, `"LG"`) or 0-based index
-- Built-in actions: Tile All, Maximize All, Unhide All, Save/Delete layouts
+- Built-in actions: Tile All, Maximize All, Unhide All, Cascade Windows, Save/Delete layouts
 
 ## 📦 Installation
 
@@ -18,42 +18,15 @@ Install [Hammerspoon](https://www.hammerspoon.org/) first if you haven't:
 brew install --cask hammerspoon
 ```
 
-Download [Ryoiki.spoon.zip](https://github.com/masaki39/ryoiki/raw/main/Spoons/Ryoiki.spoon.zip), open it to install, and add to `~/.hammerspoon/init.lua`:
+Download [WindowStow.spoon.zip](https://github.com/masatora/window-stow/raw/main/Spoons/WindowStow.spoon.zip), open it to install, and add to `~/.hammerspoon/init.lua`:
 
 ```lua
-hs.loadSpoon("Ryoiki")
-spoon.Ryoiki.layouts_dir = "/path/to/your/layouts"  -- optional
-spoon.Ryoiki.centerCursor = true                     -- optional (default: false)
-spoon.Ryoiki:start()
-spoon.Ryoiki:bindHotkeys({ showChooser = { {"ctrl", "alt"}, "m" } })
+hs.loadSpoon("WindowStow")
+spoon.WindowStow.layouts_dir = "/path/to/your/layouts"  -- optional
+spoon.WindowStow.centerCursor = true                     -- optional (default: false)
+spoon.WindowStow:start()
+spoon.WindowStow:bindHotkeys({ showChooser = { {"ctrl", "alt"}, "m" } })
 ```
-
-<details>
-<summary>🚀 Via SpoonInstall</summary>
-
-Download [SpoonInstall.spoon.zip](https://github.com/Hammerspoon/Spoons/raw/main/Spoons/SpoonInstall.spoon.zip) and open it to install if you haven't.
-
-Add to `~/.hammerspoon/init.lua`:
-
-```lua
-hs.loadSpoon("SpoonInstall")
-spoon.SpoonInstall.repos.ryoiki = {
-    url = "https://github.com/masaki39/ryoiki",
-    desc = "Ryoiki Spoon repository",
-    branch = "main",
-}
-spoon.SpoonInstall:andUse("Ryoiki", {
-    repo = "ryoiki",
-    config = {
-        layouts_dir  = os.getenv("HOME") .. "/.hammerspoon/layouts",
-        centerCursor = true,
-    },
-    start = true,
-    hotkeys = { showChooser = { {"ctrl", "alt"}, "m" } },
-})
-```
-
-</details>
 
 ## 📁 Layout Files
 
@@ -114,28 +87,41 @@ No layout file needed — these actions are always available from the chooser or
 | **Tile All** | Arrange all visible windows on the cursor screen in a grid |
 | **Maximize All** | Maximize all visible windows |
 | **Unhide All** | Restore all hidden application windows |
+| **Cascade Windows** | Stagger visible windows diagonally on screen (excludes Finder) |
 | **Save Current Layout** | Capture current window positions and save as a layout file |
 | **Delete Layout** | Delete an existing layout file |
 
 ```lua
-spoon.Ryoiki:bindHotkeys({
-    showChooser  = { {"ctrl", "alt"}, "m" },
-    tileAll      = { {"ctrl", "alt"}, "t" },
-    maximizeAll  = { {"ctrl", "alt"}, "f" },
-    unhideAll    = { {"ctrl", "alt"}, "u" },
-    saveLayout   = { {"ctrl", "alt"}, "s" },
-    deleteLayout = { {"ctrl", "alt"}, "d" },
+spoon.WindowStow:bindHotkeys({
+    showChooser     = { {"ctrl", "alt"}, "m" },
+    tileAll         = { {"ctrl", "alt"}, "t" },
+    maximizeAll     = { {"ctrl", "alt"}, "f" },
+    unhideAll       = { {"ctrl", "alt"}, "u" },
+    cascadeWindows  = { {"ctrl", "alt"}, "c" },
+    saveLayout      = { {"ctrl", "alt"}, "s" },
+    deleteLayout    = { {"ctrl", "alt"}, "d" },
 })
 ```
 
 Or call them directly from Lua:
 
 ```lua
-spoon.Ryoiki:tileAll()
-spoon.Ryoiki:maximizeAll()
-spoon.Ryoiki:unhideAll()
-spoon.Ryoiki:saveCurrentLayout("my-layout")
-spoon.Ryoiki:deleteLayout("my-layout")
+spoon.WindowStow:tileAll()
+spoon.WindowStow:maximizeAll()
+spoon.WindowStow:unhideAll()
+spoon.WindowStow:showCascadeChooser()
+spoon.WindowStow:saveCurrentLayout("my-layout")
+spoon.WindowStow:deleteLayout("my-layout")
+```
+
+### Cascade Windows
+
+Cascade Windows staggers all visible non-Finder windows on the cursor screen diagonally
+from top-left to bottom-right. When selected from the chooser, a sub-chooser lets you
+toggle which windows to include before applying.
+
+```lua
+spoon.WindowStow.cascadeStagger = 40  -- optional: override stagger amount in pixels (default: auto)
 ```
 
 ## 🏷️ Version Management (for developers)

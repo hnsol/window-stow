@@ -1,5 +1,5 @@
 -- chooser.lua
--- hs.chooser wrapper for Ryoiki.spoon
+-- hs.chooser wrapper for WindowStow.spoon
 
 local M = {}
 
@@ -74,7 +74,7 @@ function M.new(getLayouts, applyFn, builtins)
             end
         end)
         chooser:searchSubText(true)
-        chooser:placeholderText("Select layout…  (^J ↓  ^K ↑)")
+        chooser:placeholderText("Select layout…")
     end
 
     function self.show()
