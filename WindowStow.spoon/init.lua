@@ -105,6 +105,27 @@ function obj:stop()
 	return self
 end
 
+-- Bind URL events via hs.urlevent
+-- map: { action = "urlEventName", ... }
+-- e.g. { cascadeWindows = "cascadeWindows" } → hammerspoon://cascadeWindows
+function obj:bindURLEvents(map)
+	local actions = {
+		showChooser    = function() if self._chooser then self._chooser.show() end end,
+		tileAll        = function() self:tileAll() end,
+		maximizeAll    = function() self:maximizeAll() end,
+		unhideAll      = function() self:unhideAll() end,
+		cascadeWindows = function() self:showCascadeChooser() end,
+		saveLayout     = function() self:showSaveChooser() end,
+		deleteLayout   = function() self:showDeleteChooser() end,
+	}
+	for action, eventName in pairs(map) do
+		if actions[action] then
+			hs.urlevent.bind(eventName, actions[action])
+		end
+	end
+	return self
+end
+
 -- Bind additional hotkeys — stored in _spoonHotkeys
 -- map: { showChooser, tileAll, maximizeAll, unhideAll, cascadeWindows, saveLayout, deleteLayout } = { mods, key }
 function obj:bindHotkeys(map)
