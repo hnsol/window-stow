@@ -322,6 +322,11 @@ local function cascadeTargets(screen)
 			wins[#wins + 1] = win
 		end
 	end
+	-- sort top-left first: ascending by (x + y) of the window's top-left corner
+	table.sort(wins, function(a, b)
+		local fa, fb = a:frame(), b:frame()
+		return (fa.x + fa.y) < (fb.x + fb.y)
+	end)
 	return wins, screen
 end
 
