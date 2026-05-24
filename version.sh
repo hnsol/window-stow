@@ -3,9 +3,9 @@ set -euo pipefail
 
 BUMP="${1:-patch}"  # patch | minor | major
 
-INIT_LUA="Ryoiki.spoon/init.lua"
+INIT_LUA="WindowStow.spoon/init.lua"
 DOCS_JSON="docs/docs.json"
-ZIP_PATH="Spoons/Ryoiki.spoon.zip"
+ZIP_PATH="Spoons/WindowStow.spoon.zip"
 
 # --- Read current version ---
 CURRENT=$(grep -oE 'obj\.version = "[^"]+"' "$INIT_LUA" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
@@ -40,7 +40,7 @@ sed -i '' "s/\"version\": \"${CURRENT}\"/\"version\": \"${NEW}\"/" "$DOCS_JSON"
 
 # --- Regenerate zip ---
 rm -f "$ZIP_PATH"
-zip -r "$ZIP_PATH" Ryoiki.spoon/ > /dev/null
+zip -r "$ZIP_PATH" WindowStow.spoon/ > /dev/null
 echo "Regenerated $ZIP_PATH"
 
 # --- Commit & tag ---

@@ -1,5 +1,5 @@
--- Ryoiki.spoon/init.lua
--- Spoon entry point for Ryoiki
+-- WindowStow.spoon/init.lua
+-- Spoon entry point for WindowStow
 
 -- Resolve the directory containing this file so we can dofile sibling modules
 local _spoonDir = (function()
@@ -21,7 +21,7 @@ local chooser = _require("chooser")
 local obj = {}
 obj.__index = obj
 
-obj.name = "Ryoiki"
+obj.name = "WindowStow"
 obj.version = "2.2.2"
 obj.author = "masaki39"
 obj.license = "MIT"
@@ -35,7 +35,8 @@ obj._layoutHotkeys = {} -- hs.hotkey objects for per-layout keybinds (rebuilt on
 obj._spoonHotkeys  = {} -- hs.hotkey objects for spoon-level bindings (showChooser etc.)
 obj._chooser       = nil -- chooser instance
 
-obj.centerCursor = false -- move cursor to center of focused window after layout apply
+obj.centerCursor   = false -- move cursor to center of focused window after layout apply
+obj.cascadeStagger = nil   -- stagger amount in pixels for Cascade Windows (nil = auto)
 
 -- Load (or reload) layouts from layouts_dir
 function obj:_loadLayouts()
@@ -43,7 +44,7 @@ function obj:_loadLayouts()
 	if ok then
 		self._layouts = result
 	else
-		hs.notify.show("Ryoiki", "", "Failed to load layouts: " .. tostring(result))
+		hs.notify.show("WindowStow", "", "Failed to load layouts: " .. tostring(result))
 		self._layouts = {}
 	end
 end
@@ -74,6 +75,7 @@ function obj:start()
 		{ name = "Tile All",            description = "Arrange visible windows in a grid on the cursor screen" },
 		{ name = "Maximize All",        description = "Maximize all visible windows" },
 		{ name = "Unhide All",          description = "Restore all hidden application windows" },
+		{ name = "Cascade Windows",     description = "Stagger visible windows diagonally on screen (excludes Finder)" },
 		{ name = "Save Current Layout", description = "Save current window arrangement as a layout file" },
 		{ name = "Delete Layout",       description = "Delete an existing layout file" },
 	}
@@ -104,15 +106,16 @@ function obj:stop()
 end
 
 -- Bind additional hotkeys — stored in _spoonHotkeys
--- map: { showChooser, tileAll, maximizeAll, unhideAll, saveLayout, deleteLayout } = { mods, key }
+-- map: { showChooser, tileAll, maximizeAll, unhideAll, cascadeWindows, saveLayout, deleteLayout } = { mods, key }
 function obj:bindHotkeys(map)
 	local actions = {
-		showChooser  = function() if self._chooser then self._chooser.show() end end,
-		tileAll      = function() self:tileAll() end,
-		maximizeAll  = function() self:maximizeAll() end,
-		unhideAll    = function() self:unhideAll() end,
-		saveLayout   = function() self:showSaveChooser() end,
-		deleteLayout = function() self:showDeleteChooser() end,
+		showChooser    = function() if self._chooser then self._chooser.show() end end,
+		tileAll        = function() self:tileAll() end,
+		maximizeAll    = function() self:maximizeAll() end,
+		unhideAll      = function() self:unhideAll() end,
+		cascadeWindows = function() self:showCascadeChooser() end,
+		saveLayout     = function() self:showSaveChooser() end,
+		deleteLayout   = function() self:showDeleteChooser() end,
 	}
 	for action, fn in pairs(actions) do
 		if map[action] then
@@ -128,6 +131,7 @@ function obj:applyLayout(name)
 	if name == "Tile All"            then return self:tileAll() end
 	if name == "Maximize All"        then return self:maximizeAll() end
 	if name == "Unhide All"          then return self:unhideAll() end
+	if name == "Cascade Windows"     then return self:showCascadeChooser() end
 	if name == "Save Current Layout" then return self:showSaveChooser() end
 	if name == "Delete Layout"       then return self:showDeleteChooser() end
 	for _, ld in ipairs(self._layouts) do
@@ -136,7 +140,7 @@ function obj:applyLayout(name)
 			return
 		end
 	end
-	hs.notify.show("Ryoiki", "", "Layout not found: " .. tostring(name))
+	hs.notify.show("WindowStow", "", "Layout not found: " .. tostring(name))
 end
 
 -- Arrange all visible standard windows on the main screen in a grid
@@ -232,13 +236,13 @@ function obj:saveCurrentLayout(name)
 	local path = dir .. "/" .. name .. ".lua"
 	local f    = io.open(path, "w")
 	if not f then
-		hs.notify.show("Ryoiki", "", "Could not write: " .. path)
+		hs.notify.show("WindowStow", "", "Could not write: " .. path)
 		return
 	end
 	f:write(table.concat(lines, "\n") .. "\n")
 	f:close()
 	self:reloadConfig()
-	hs.notify.show("Ryoiki", "", "Saved: " .. name)
+	hs.notify.show("WindowStow", "", "Saved: " .. name)
 end
 
 -- Delete a layout file by name
@@ -248,9 +252,9 @@ function obj:deleteLayout(name)
 	local ok, err = os.remove(path)
 	if ok then
 		self:reloadConfig()
-		hs.notify.show("Ryoiki", "", "Deleted: " .. name)
+		hs.notify.show("WindowStow", "", "Deleted: " .. name)
 	else
-		hs.notify.show("Ryoiki", "", "Could not delete: " .. tostring(err))
+		hs.notify.show("WindowStow", "", "Could not delete: " .. tostring(err))
 	end
 end
 
@@ -290,7 +294,7 @@ function obj:showDeleteChooser()
 		choices[#choices + 1] = { text = ld.name }
 	end
 	if #choices == 0 then
-		hs.notify.show("Ryoiki", "", "No layouts to delete")
+		hs.notify.show("WindowStow", "", "No layouts to delete")
 		return
 	end
 	local navHks = {}
@@ -302,6 +306,99 @@ function obj:showDeleteChooser()
 		if choice then self:deleteLayout(choice.text) end
 	end)
 	c:placeholderText("Select layout to delete…  (^J ↓  ^K ↑)")
+	c:choices(choices)
+	c:show()
+	navHks = chooser.bindNav(c, function() return #choices end)
+end
+
+-- Collect visible non-Finder standard windows on the cursor screen
+local function cascadeTargets(screen)
+	screen = screen or hs.screen.find(hs.mouse.absolutePosition()) or hs.screen.mainScreen()
+	local wins = {}
+	for _, win in ipairs(hs.window.visibleWindows()) do
+		local app = win:application()
+		if win:isStandard() and win:screen() == screen
+			and app and app:bundleID() ~= "com.apple.finder" then
+			wins[#wins + 1] = win
+		end
+	end
+	return wins, screen
+end
+
+-- Arrange wins in a diagonal cascade on screen
+function obj:cascadeWindows(wins)
+	if not wins or #wins == 0 then return self end
+	local screen = wins[1]:screen() or hs.screen.mainScreen()
+	local sf     = screen:frame()
+
+	local marginX = sf.w * 0.05
+	local marginY = sf.h * 0.05
+	local x0      = sf.x + marginX       -- 左端（5%マージン）
+	local y0      = sf.y + marginY       -- 上端（5%マージン）
+	local areaW   = sf.w * 0.90          -- 使用可能幅（左右各5%）
+	local areaH   = sf.h * 0.95          -- 使用可能高さ（上5%、下0%）
+
+	local N = #wins
+	local S = self.cascadeStagger or math.min(60, math.max(20, math.floor(sf.w * 0.02)))
+	local winW = math.max(areaW * 0.4, areaW - (N - 1) * S)
+	local winH = math.max(areaH * 0.4, areaH - (N - 1) * S)
+
+	for i, win in ipairs(wins) do
+		local offset = (i - 1) * S
+		win:setFrame({ x = x0 + offset, y = y0 + offset, w = winW, h = winH }, 0)
+	end
+	return self
+end
+
+-- Show a toggle-based chooser to select windows for cascade
+function obj:showCascadeChooser(selected)
+	local allWins = cascadeTargets()
+
+	-- 初回: 全ウィンドウを選択状態に
+	if selected == nil then
+		selected = {}
+		for _, win in ipairs(allWins) do selected[win:id()] = true end
+	end
+
+	-- 選択中のウィンドウ一覧を構築
+	local selectedWins = {}
+	for _, win in ipairs(allWins) do
+		if selected[win:id()] then selectedWins[#selectedWins + 1] = win end
+	end
+
+	-- chooser の選択肢を構築
+	local choices = {}
+	choices[1] = {
+		text    = "Apply Cascade (" .. #selectedWins .. " windows)",
+		subText = "Arrange selected windows diagonally",
+		_apply  = true,
+	}
+	for _, win in ipairs(allWins) do
+		local mark    = selected[win:id()] and "✓" or "○"
+		local appName = (win:application() and win:application():name()) or "?"
+		local title   = win:title() or ""
+		choices[#choices + 1] = {
+			text   = mark .. " " .. appName .. (title ~= "" and (" — " .. title) or ""),
+			_winId = win:id(),
+		}
+	end
+
+	local navHks = {}
+	local c
+	c = hs.chooser.new(function(choice)
+		chooser.unbindNav(navHks)
+		c:delete()
+		c = nil
+		if not choice then return end
+		if choice._apply then
+			self:cascadeWindows(selectedWins)
+		else
+			-- toggle して chooser を再表示
+			selected[choice._winId] = not selected[choice._winId]
+			self:showCascadeChooser(selected)
+		end
+	end)
+	c:placeholderText("Toggle windows to cascade…  (^J ↓  ^K ↑)")
 	c:choices(choices)
 	c:show()
 	navHks = chooser.bindNav(c, function() return #choices end)

@@ -1,5 +1,5 @@
 -- parser.lua
--- Lua table loader for Ryoiki.spoon
+-- Lua table loader for WindowStow.spoon
 
 local M = {}
 
@@ -9,13 +9,13 @@ local M = {}
 function M.loadFile(path, name)
     local ok, result = pcall(dofile, path)
     if not ok then
-        error("Ryoiki loader: cannot load file: " .. tostring(path) .. " (" .. tostring(result) .. ")")
+        error("WindowStow loader: cannot load file: " .. tostring(path) .. " (" .. tostring(result) .. ")")
     end
     if type(result) ~= "table" then
-        error("Ryoiki loader: " .. tostring(path) .. " must return a table, got " .. type(result))
+        error("WindowStow loader: " .. tostring(path) .. " must return a table, got " .. type(result))
     end
     if type(result.windows) ~= "table" then
-        error("Ryoiki loader: " .. tostring(path) .. " missing required field 'windows'")
+        error("WindowStow loader: " .. tostring(path) .. " missing required field 'windows'")
     end
     result.name = name
     return result
@@ -39,7 +39,7 @@ function M.loadDir(dir)
         if ok then
             layouts[#layouts + 1] = result
         else
-            hs.notify.show("Ryoiki", "", "Failed to load " .. filename .. ": " .. tostring(result))
+            hs.notify.show("WindowStow", "", "Failed to load " .. filename .. ": " .. tostring(result))
         end
     end
     return layouts

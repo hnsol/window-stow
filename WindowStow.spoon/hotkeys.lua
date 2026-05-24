@@ -1,5 +1,5 @@
 -- hotkeys.lua
--- Hotkey utility for Ryoiki.spoon
+-- Hotkey utility for WindowStow.spoon
 
 local M = {}
 
@@ -39,7 +39,7 @@ function M.bindAll(bindings)
             if ok and hk then
                 hotkeys[#hotkeys + 1] = hk
             else
-                hs.notify.show("Ryoiki", "", "Failed to bind hotkey: " .. tostring(binding.combo))
+                hs.notify.show("WindowStow", "", "Failed to bind hotkey: " .. tostring(binding.combo))
             end
         end
     end

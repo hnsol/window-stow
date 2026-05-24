@@ -1,5 +1,5 @@
 -- chooser.lua
--- hs.chooser wrapper for Ryoiki.spoon
+-- hs.chooser wrapper for WindowStow.spoon
 
 local M = {}
 
