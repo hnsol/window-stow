@@ -104,7 +104,7 @@ Always available from the chooser — no layout file needed.
 
 Arranges all visible non-Finder windows on the cursor screen in a diagonal cascade from top-left to bottom-right.
 
-![tile-all](./assets/tile-all.gif)
+![cascade](./assets/cascade.gif)
 
 **How it works:**
 
