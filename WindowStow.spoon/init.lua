@@ -36,7 +36,8 @@ obj._spoonHotkeys  = {} -- hs.hotkey objects for spoon-level bindings (showChoos
 obj._chooser       = nil -- chooser instance
 
 obj.centerCursor   = false -- move cursor to center of focused window after layout apply
-obj.cascadeStagger = nil   -- stagger amount in pixels for Cascade Windows (nil = auto)
+obj.cascadeStagger   = nil   -- stagger amount in pixels for Cascade Windows (nil = auto)
+obj.cascadeMaxWidth  = nil   -- max window width for cascade in pixels (nil = 1600)
 
 -- Load (or reload) layouts from layouts_dir
 function obj:_loadLayouts()
@@ -359,19 +360,27 @@ function obj:cascadeWindows(wins)
 
 	local marginX = sf.w * 0.05
 	local marginY = sf.h * 0.05
-	local x0      = sf.x + marginX       -- 左端（5%マージン）
-	local y0      = sf.y + marginY       -- 上端（5%マージン）
-	local areaW   = sf.w * 0.90          -- 使用可能幅（左右各5%）
-	local areaH   = sf.h * 0.95          -- 使用可能高さ（上5%、下0%）
+	local areaW   = sf.w - 2 * marginX
+	local areaH   = sf.h - marginY   -- top margin only
 
 	local N = #wins
 	local S = self.cascadeStagger or math.min(60, math.max(20, math.floor(sf.w * 0.02)))
-	local winW = math.max(areaW * 0.4, areaW - (N - 1) * S)
+	local winW = math.min(math.max(areaW * 0.4, areaW - (N - 1) * S), self.cascadeMaxWidth or 1600)
 	local winH = math.max(areaH * 0.4, areaH - (N - 1) * S)
 
+	-- wins[1] anchored at top-left, wins[N] anchored at bottom-right (flush to bottom)
+	-- Sx/Sy derived from these two anchor points
+	local x0 = sf.x + marginX
+	local y0 = sf.y + marginY
+	local xN = sf.x + sf.w - marginX - winW
+	local yN = sf.y + sf.h - winH
+
+	local Sx = N > 1 and (xN - x0) / (N - 1) or 0
+	local Sy = N > 1 and (yN - y0) / (N - 1) or 0
+
 	for i, win in ipairs(wins) do
-		local offset = (i - 1) * S
-		win:setFrame({ x = x0 + offset, y = y0 + offset, w = winW, h = winH }, 0)
+		local k = i - 1
+		win:setFrame({ x = x0 + k * Sx, y = y0 + k * Sy, w = winW, h = winH }, 0)
 	end
 
 	-- Build cascade set for lookup
