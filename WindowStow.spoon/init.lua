@@ -37,7 +37,7 @@ obj._chooser       = nil -- chooser instance
 
 obj.centerCursor   = false -- move cursor to center of focused window after layout apply
 obj.cascadeStagger   = nil   -- stagger amount in pixels for Cascade Windows (nil = auto)
-obj.cascadeMaxWidth  = nil   -- max window width for cascade in pixels (nil = 1600)
+obj.cascadeMaxWidth  = nil   -- max window width for cascade in pixels (nil = 1280)
 
 -- Load (or reload) layouts from layouts_dir
 function obj:_loadLayouts()
@@ -365,7 +365,7 @@ function obj:cascadeWindows(wins)
 
 	local N = #wins
 	local S = self.cascadeStagger or math.min(60, math.max(20, math.floor(sf.w * 0.02)))
-	local winW = math.min(math.max(areaW * 0.4, areaW - (N - 1) * S), self.cascadeMaxWidth or 1600)
+	local winW = math.min(math.max(areaW * 0.4, areaW - (N - 1) * S), self.cascadeMaxWidth or 1280)
 	local winH = math.max(areaH * 0.4, areaH - (N - 1) * S)
 
 	-- wins[1] anchored at top-left, wins[N] anchored at bottom-right (flush to bottom)
